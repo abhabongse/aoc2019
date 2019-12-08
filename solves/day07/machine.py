@@ -47,7 +47,7 @@ class IntcodeMachine:
         # Fire and move on
         await method(*args, modes=param_modes, execution=execution)
 
-    def get_value(self, param, mode):
+    def get_value(self, param: int, mode: int):
         if mode == 0:
             return self.memory[param]
         elif mode == 1:
@@ -55,7 +55,7 @@ class IntcodeMachine:
         else:
             raise RuntimeError(f"unknown mode: {mode!r}")
 
-    def set_value(self, param, mode, value):
+    def set_value(self, param: int, mode: int, value: int):
         if mode == 0:
             self.memory[param] = value
         elif mode == 1:
@@ -83,7 +83,7 @@ class IntcodeMachine:
         self.set_value(res_param, modes[2], result)
         self.pc += 4
 
-    async def execute_03(self, target_param, *, modes, execution, **_):
+    async def execute_03(self, target_param, *, modes, execution: 'Execution', **_):
         """
         Opcode 3: Save input integer to target
         """
@@ -91,7 +91,7 @@ class IntcodeMachine:
         self.set_value(target_param, modes[0], value)
         self.pc += 2
 
-    async def execute_04(self, source_param, *, modes, execution, **_):
+    async def execute_04(self, source_param, *, modes, execution: 'Execution', **_):
         """
         Opcode 4: Output integer from source location
         """
@@ -139,7 +139,7 @@ class IntcodeMachine:
         self.set_value(res_param, modes[2], result)
         self.pc += 4
 
-    async def execute_99(self, **kwargs):
+    async def execute_99(self, **_):
         raise ProgramStopped
 
 
