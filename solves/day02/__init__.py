@@ -4,7 +4,7 @@ Day 2: 1202 Program Alarm
 import os
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-opcode_file = os.path.join(this_dir, "opcode.txt")
+opcode_file = os.path.join(this_dir, "program.txt")
 
 test_cases = [
     [1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50],
