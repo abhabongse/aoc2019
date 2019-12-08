@@ -48,7 +48,7 @@ def run_program(program, noun, verb):
 
 def solve_part_one():
     opcode = read_opcode(opcode_file)
-    result  = run_program(opcode, 12, 2)
+    result = run_program(opcode, 12, 2)
     print(result)
 
 
@@ -62,6 +62,6 @@ def solve_part_two():
 
 
 if __name__ == '__main__':
-    # solve_part_one()
+    solve_part_one()
     solve_part_two()
     # print(run_program(test_cases[0]))
