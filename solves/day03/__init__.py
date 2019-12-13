@@ -5,32 +5,40 @@ import os
 from typing import Dict, Iterable, Iterator, List, NamedTuple, Tuple
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-wires_file = os.path.join(this_dir, "wires.txt")
+wires_filename = os.path.join(this_dir, "wires.txt")
 
 
-class Point2D(NamedTuple):
+####################
+# Data definitions #
+####################
+
+class Vector2D(NamedTuple):
     x: int
     y: int
 
     def __add__(self, other):
-        return Point2D(self.x + other.x, self.y + other.y)
+        return Vector2D(self.x + other.x, self.y + other.y)
 
-    def dist_from_origin(self):
+    def norm1(self):
         return abs(self.x) + abs(self.y)
 
 
-Instruction = Tuple[Point2D, int]
+Instruction = Tuple[Vector2D, int]
 
-symbol_to_direction = {
-    'U': Point2D(0, 1),
-    'D': Point2D(0, -1),
-    'R': Point2D(1, 0),
-    'L': Point2D(-1, 0),
+SYMBOL_TO_DIRECTION = {
+    'U': Vector2D(0, 1),
+    'D': Vector2D(0, -1),
+    'R': Vector2D(1, 0),
+    'L': Vector2D(-1, 0),
 }
 
 
-def read_wires(file) -> Tuple[List[Instruction], List[Instruction]]:
-    with open(file) as fobj:
+##################
+# Main functions #
+##################
+
+def read_wires(filename: str) -> Tuple[List[Instruction], List[Instruction]]:
+    with open(filename) as fobj:
         fst = parse_instructions(fobj.readline())
         snd = parse_instructions(fobj.readline())
         return fst, snd
@@ -39,46 +47,63 @@ def read_wires(file) -> Tuple[List[Instruction], List[Instruction]]:
 def parse_instructions(line: str) -> List[Instruction]:
     instructions = []
     for instr in line.strip().split(","):
-        direction = symbol_to_direction[instr[0]]
+        direction = SYMBOL_TO_DIRECTION[instr[0]]
         steps = int(instr[1:])
-        instructions.append((direction, steps))
+        instr = (direction, steps)
+        instructions.append(instr)
     return instructions
 
 
-def generate_occupancies(instructions: Iterable[Instruction]) -> Iterator[Point2D]:
-    location = Point2D(0, 0)
+def traversed_cells(instructions: Iterable[Instruction]) -> Iterator[Vector2D]:
+    """
+    Convert from a sequence of walking instructions from the point of origin
+    into a sequence of traversed positions.
+    """
+    location = Vector2D(0, 0)
     for direction, steps in instructions:
         for _ in range(steps):
-            location = location + direction
+            location += direction
             yield location
 
 
-def occupancy_steps(instructions: Iterable[Instruction]) -> Dict[Point2D, int]:
-    steps_data = {}
-    for step, location in enumerate(generate_occupancies(instructions), start=1):
-        if location in steps_data:
-            continue
-        steps_data[location] = step
-    return steps_data
+def first_step_count_to_cells(
+        instructions: Iterable[Instruction],
+) -> Dict[Vector2D, int]:
+    """
+    From the given walking instructions, computes the mapping
+    from each traversed cell to the first step count to such position.
+    """
+    step_count_data = {}
+    for count, location in enumerate(traversed_cells(instructions), start=1):
+        if location in step_count_data:
+            continue  # already exists
+        step_count_data[location] = count
+    return step_count_data
 
 
 def solve_part_one():
-    fst_instructions, snd_instructions = read_wires(wires_file)
-    fst_occupancies = set(generate_occupancies(fst_instructions))
-    snd_occupancies = set(generate_occupancies(snd_instructions))
-    intersections = fst_occupancies & snd_occupancies
-    result = min(inter.dist_from_origin() for inter in intersections)
-    print(result)
+    fst_instructions, snd_instructions = read_wires(wires_filename)
+
+    fst_traversed_cells = set(traversed_cells(fst_instructions))
+    snd_traversed_cells = set(traversed_cells(snd_instructions))
+
+    intersections = fst_traversed_cells & snd_traversed_cells
+    result = min(inter.norm1() for inter in intersections)
+    print(f"Part one: {result=}")
 
 
 def solve_part_two():
-    fst_instructions, snd_instructions = read_wires(wires_file)
-    fst_steps_data = occupancy_steps(fst_instructions)
-    snd_steps_data = occupancy_steps(snd_instructions)
-    intersections = fst_steps_data.keys() & snd_steps_data.keys()
-    result = min(fst_steps_data[inter] + snd_steps_data[inter]
-                 for inter in intersections)
-    print(result)
+    fst_instructions, snd_instructions = read_wires(wires_filename)
+
+    fst_step_count_data = first_step_count_to_cells(fst_instructions)
+    snd_steps_count_data = first_step_count_to_cells(snd_instructions)
+
+    intersections = fst_step_count_data.keys() & snd_steps_count_data.keys()
+    result = min(
+        fst_step_count_data[inter] + snd_steps_count_data[inter]
+        for inter in intersections
+    )
+    print(f"Part two: {result=}")
 
 
 if __name__ == '__main__':

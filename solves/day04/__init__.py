@@ -2,44 +2,49 @@
 Day 4: Secure Container
 """
 
+#########
+# Input #
+#########
+
 lower = 271973
 upper = 785961
 
 
-def fits_criteria(number):
+#############
+# Functions #
+#############
+
+def fits_criteria(number: int) -> bool:
     digits = str(number)
-    if len(digits) != 6:
-        return False
-    if not any(digits[i - 1] == digits[i] for i in range(1, 6)):
-        return False
-    if not all(digits[i - 1] <= digits[i] for i in range(1, 6)):
-        return False
-    return True
+    return (len(digits) == 6
+            # There exists a consecutive pair of identical digits
+            and any(digits[i - 1] == digits[i] for i in range(1, 6))
+            # Digits are non-decreasing when reading left-to-right
+            and all(digits[i - 1] <= digits[i] for i in range(1, 6)))
 
 
-def fits_super_criteria(number):
-    if not fits_criteria(number):
-        return False
+def fits_super_criteria(number: int) -> bool:
     digits = str(number)
-    for test in range(10):
-        double = f'{test}{test}'
-        triple = f'{test}{test}{test}'
-        if double in digits and triple not in digits:
-            return True
-    return False
+    return (fits_criteria(number)
+            # One digit must appear twice but not trice consecutively
+            and any(f'{d}{d}' in digits and f'{d}{d}{d}' not in digits
+                    for d in range(10)))
 
 
 def solve_part_one():
-    valid_numbers = [number for number in range(lower, upper + 1)
-                     if fits_criteria(number)]
-    print(len(valid_numbers), valid_numbers)
+    valid_numbers = [
+        number for number in range(lower, upper + 1)
+        if fits_criteria(number)
+    ]
+    print("Part one:", len(valid_numbers), valid_numbers)
 
 
 def solve_part_two():
-    valid_numbers = [number for number in range(lower, upper + 1)
-                     if fits_super_criteria(number)]
-    print(len(valid_numbers), valid_numbers)
-
+    valid_numbers = [
+        number for number in range(lower, upper + 1)
+        if fits_super_criteria(number)
+    ]
+    print("Part two:", len(valid_numbers), valid_numbers)
 
 
 if __name__ == '__main__':

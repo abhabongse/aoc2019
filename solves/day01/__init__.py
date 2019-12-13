@@ -2,21 +2,22 @@
 Day 1: The Tyranny of the Rocket Equation
 """
 import os
+from typing import Iterator, List
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-masses_file = os.path.join(this_dir, "masses.txt")
+masses_filename = os.path.join(this_dir, "masses.txt")
 
 
-def read_masses(file):
-    with open(file) as fobj:
+def read_masses(filename: str) -> List[int]:
+    with open(filename) as fobj:
         return [int(line) for line in fobj]
 
 
-def mass_to_fuel(mass):
+def mass_to_fuel(mass: int) -> int:
     return mass // 3 - 2
 
 
-def mass_to_compound_fuels(mass):
+def mass_to_compound_fuels(mass: int) -> Iterator[int]:
     fuel = mass_to_fuel(mass)
     while fuel > 0:
         yield fuel
@@ -24,15 +25,18 @@ def mass_to_compound_fuels(mass):
 
 
 def solve_part_one():
-    masses = read_masses(masses_file)
+    masses = read_masses(masses_filename)
     result = sum(mass_to_fuel(mass) for mass in masses)
-    print(result)
+    print(f"Part one: {result=}")
 
 
 def solve_part_two():
-    masses = read_masses(masses_file)
-    result = sum(sum(mass_to_compound_fuels(mass)) for mass in masses)
-    print(result)
+    masses = read_masses(masses_filename)
+    result = sum(
+        sum(mass_to_compound_fuels(mass))
+        for mass in masses
+    )
+    print(f"Part two: {result=}")
 
 
 if __name__ == '__main__':
