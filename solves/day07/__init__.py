@@ -4,26 +4,32 @@ Day 7: Amplification Circuit
 import asyncio
 import itertools
 import os
+from typing import Optional, Sequence
 
 import uvloop
 
-from solves.day07.machine import Execution
+from solves.day07.machine import Execution, Program
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-amplifier_file = os.path.join(this_dir, "amplifier.txt")
+amplifier_filename = os.path.join(this_dir, "amplifier.txt")
 
 
-def read_amplifier_program(file):
-    with open(file) as fobj:
+def read_amplifier_program(filename: str) -> Program:
+    with open(filename) as fobj:
         return tuple(int(token) for token in fobj.read().split(","))
 
 
-############
-# Part one #
-############
+################
+# For part one #
+################
 
 class AmplifierExec(Execution):
-    def __init__(self, program, phase, input_signal):
+    phase: int
+    input_signal: int
+    output_signal: Optional[int]
+    counter: int
+
+    def __init__(self, program: Program, phase: int, input_signal: int):
         super().__init__(program)
         self.phase = phase
         self.input_signal = input_signal
@@ -46,7 +52,9 @@ class AmplifierExec(Execution):
         self.output_signal = value
 
 
-async def test_thruster(amplifier_program, phase_setting):
+async def test_thruster(
+        amplifier_program: Program, phase_setting: Sequence[int],
+) -> int:
     current_signal = 0
     for phase in phase_setting:
         executor = AmplifierExec(amplifier_program, phase, current_signal)
@@ -56,7 +64,7 @@ async def test_thruster(amplifier_program, phase_setting):
 
 
 async def solve_part_one():
-    amplifier_program = read_amplifier_program(amplifier_file)
+    amplifier_program = read_amplifier_program(amplifier_filename)
     signals = [
         await test_thruster(amplifier_program, phase_setting)
         for phase_setting in itertools.permutations([0, 1, 2, 3, 4])
@@ -64,17 +72,26 @@ async def solve_part_one():
     print(max(signals))
 
 
-############
-# Part two #
-############
+################
+# For part two #
+################
 
 class WiredAmplifierExec(Execution):
-    def __init__(self, program, phase, input_queue, output_queue, key):
+    phase: int
+    input_queue: asyncio.Queue
+    output_queue: asyncio.Queue
+    key: int
+    last_output: Optional[int]
+    counter: int
+
+    def __init__(
+            self, program: Program, phase: int,
+            input_queue: asyncio.Queue, output_queue: asyncio.Queue,
+    ):
         super().__init__(program)
         self.phase = phase
         self.input_queue = input_queue
         self.output_queue = output_queue
-        self.key = key
         self.last_output = False
         self.counter = 0
 
@@ -85,17 +102,17 @@ class WiredAmplifierExec(Execution):
             return self.phase
         else:
             value = await self.input_queue.get()
-            # print(f"{self.key} receives {value}")
             return value
 
     async def output(self, value: int) -> None:
         await asyncio.sleep(0.001)
         self.last_output = value
-        # print(f"{self.key} returns {value}")
         await self.output_queue.put(value)
 
 
-async def test_wired_thruster(amplifier_program, phase_setting):
+async def test_wired_thruster(
+        amplifier_program: Program, phase_setting: Sequence[int],
+) -> int:
     n = len(phase_setting)
 
     # Prepare signal queues between amplifiers
@@ -103,8 +120,10 @@ async def test_wired_thruster(amplifier_program, phase_setting):
     queues = [asyncio.Queue(1) for _ in range(n)]
     await queues[0].put(0)
     executors = [
-        WiredAmplifierExec(amplifier_program, phase,
-                           queues[index], queues[(index + 1) % n], index)
+        WiredAmplifierExec(
+            amplifier_program, phase,
+            queues[index], queues[(index + 1) % n],
+        )
         for index, phase in enumerate(phase_setting)
     ]
 
@@ -129,7 +148,7 @@ async def test_wired_thruster(amplifier_program, phase_setting):
 
 
 async def solve_part_two():
-    amplifier_program = read_amplifier_program(amplifier_file)
+    amplifier_program = read_amplifier_program(amplifier_filename)
     signals = [
         await test_wired_thruster(amplifier_program, phase_setting)
         for phase_setting in itertools.permutations([5, 6, 7, 8, 9])

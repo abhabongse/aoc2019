@@ -6,20 +6,20 @@ import os
 import numpy as np
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-image_file = os.path.join(this_dir, "image.txt")
+image_filename = os.path.join(this_dir, "image.txt")
 
 
-def read_encoded_image(file):
-    with open(file) as fobj:
+def read_encoded_image(filename: str) -> str:
+    with open(filename) as fobj:
         return fobj.read().strip()
 
 
-def encoded_image_to_layers(encoded_image, width, height):
+def encoded_image_to_layers(encoded_image: str, width: int, height: int) -> np.ndarray:
     return np.reshape([int(token) for token in encoded_image], (-1, height, width))
 
 
 def solve_part_one():
-    encoded_image = read_encoded_image(image_file)
+    encoded_image = read_encoded_image(image_filename)
     width, height = 25, 6
     image = encoded_image_to_layers(encoded_image, width, height)
 
@@ -32,7 +32,7 @@ def solve_part_one():
 
 
 def solve_part_two():
-    encoded_image = read_encoded_image(image_file)
+    encoded_image = read_encoded_image(image_filename)
     width, height = 25, 6
     image = encoded_image_to_layers(encoded_image, width, height)
 

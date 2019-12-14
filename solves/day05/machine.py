@@ -19,6 +19,10 @@ class ProgramStopped(Exception):
 
 
 class Interaction:
+    """
+    Interfacing object between Intcode program and the Python world.
+    """
+
     def input(self) -> int:
         return int(input("Enter an input integer:"))
 
@@ -31,6 +35,9 @@ class Interaction:
 ##############
 
 class Machine:
+    """
+    Intcode implementation.
+    """
     memory: Memory
     pc: int
     interaction: Interaction
@@ -41,12 +48,19 @@ class Machine:
         self.interaction = interaction or Interaction()
 
     def run(self):
+        """
+        Keep running the intcode until the program terminates.
+        """
         try:
             while True: self.execute()
         except ProgramStopped:
             pass
 
     def execute(self):
+        """
+        Dispatch a single instruction of the intcode program
+        based on the current program counter.
+        """
         instr = self.memory[self.pc]
 
         # Obtain method from current instruction
@@ -88,7 +102,8 @@ class Machine:
 
     def execute_01(self, fst_param, snd_param, res_param, *, modes):
         """
-        Opcode 1: Compute addition: result = fst + snd.
+        Opcode 1: Compute ADDITION between two params.
+        result = fst + snd
         """
         fst_value = self.get_value(fst_param, modes[0])
         snd_value = self.get_value(snd_param, modes[1])
@@ -98,7 +113,8 @@ class Machine:
 
     def execute_02(self, fst_param, snd_param, res_param, *, modes):
         """
-        Opcode 2: Compute multiplication: result = fst * snd.
+        Opcode 2: Compute MULTIPLICATION between two params.
+        result = fst * snd
         """
         fst_value = self.get_value(fst_param, modes[0])
         snd_value = self.get_value(snd_param, modes[1])
@@ -108,7 +124,7 @@ class Machine:
 
     def execute_03(self, target_param, *, modes):
         """
-        Opcode 3: Save input integer to target
+        Opcode 3: Save INPUT integer to target.
         """
         value = self.interaction.input()
         self.set_value(target_param, modes[0], value)
@@ -116,7 +132,7 @@ class Machine:
 
     def execute_04(self, source_param, *, modes):
         """
-        Opcode 4: Output integer from source location
+        Opcode 4: OUTPUT integer from source location.
         """
         value = self.get_value(source_param, modes[0])
         self.interaction.output(value)
@@ -124,7 +140,7 @@ class Machine:
 
     def execute_05(self, cond_param, pos_param, *, modes):
         """
-        Opcode 5: JUMP-IF-TRUE
+        Opcode 5: JUMP-IF-TRUE branching instruction.
         If conditional param is non-zero, next jump pc to given position.
         """
         cond_value = self.get_value(cond_param, modes[0])
@@ -133,7 +149,7 @@ class Machine:
 
     def execute_06(self, cond_param, pos_param, *, modes):
         """
-        Opcode 5: JUMP-IF-FALSE
+        Opcode 6: JUMP-IF-FALSE branching instruction.
         If conditional param is zero, next jump pc to given position.
         """
         cond_value = self.get_value(cond_param, modes[0])
@@ -142,8 +158,8 @@ class Machine:
 
     def execute_07(self, fst_param, snd_param, res_param, *, modes):
         """
-        Opcode 6: LESS THAN
-        If first param is LESS THAN second param, set result param to 1 (or else to 0).
+        Opcode 7: Compute whether the first param is LESS THAN the second param.
+        result = fst < snd ? 1 : 0
         """
         fst_value = self.get_value(fst_param, modes[0])
         snd_value = self.get_value(snd_param, modes[1])
@@ -153,8 +169,8 @@ class Machine:
 
     def execute_08(self, fst_param, snd_param, res_param, *, modes):
         """
-        Opcode 6: EQUALS
-        If first param is EQUAL TO second param, set result param to 1 (or else to 0).
+        Opcode 8: Compute whether the first param is EQUAL TO the second param.
+        result = fst == snd ? 1 : 0
         """
         fst_value = self.get_value(fst_param, modes[0])
         snd_value = self.get_value(snd_param, modes[1])
@@ -163,4 +179,7 @@ class Machine:
         self.pc += 4
 
     def execute_99(self, **kwargs):
+        """
+        Opcode 99: TERMINATE Intcode Program.
+        """
         raise ProgramStopped
