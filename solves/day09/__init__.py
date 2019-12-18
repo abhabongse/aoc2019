@@ -18,10 +18,6 @@ def read_boost_program(filename: str) -> Program:
         return tuple(int(token) for token in fobj.read().split(","))
 
 
-################
-# For part one #
-################
-
 class CustomExecution(Execution):
     boost_mode: int
     count: int
