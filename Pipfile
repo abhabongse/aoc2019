@@ -9,6 +9,7 @@ verify_ssl = true
 tqdm = "*"
 numpy = "*"
 uvloop = "*"
+jupyter = "*"
 
 [requires]
 python_version = "3.8"
