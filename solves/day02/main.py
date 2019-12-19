@@ -4,9 +4,6 @@ Day 2: 1202 Program Alarm
 import os
 from typing import Iterable, List
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-opcode_filename = os.path.join(this_dir, "opcode.txt")
-
 
 def read_opcode(filename: str) -> List[int]:
     with open(filename) as fobj:
@@ -39,21 +36,23 @@ def run_intcode_program(program: Iterable[int], noun: int, verb: int):
             raise RuntimeError
 
 
-def solve_part_one():
-    opcode = read_opcode(opcode_filename)
-    result = run_intcode_program(opcode, 12, 2)
+def p1_solve(ga_program):
+    result = run_intcode_program(ga_program, 12, 2)
     print(f"Part one: {result=}")
 
 
-def solve_part_two():
-    opcode = read_opcode(opcode_filename)
+def p2_brute_force_inputs(ga_program):
     target = 19690720
     for noun in range(100):
         for verb in range(100):
-            if run_intcode_program(opcode, noun, verb) == target:
+            if run_intcode_program(ga_program, noun, verb) == target:
                 print(f'Matched: {noun=}, {verb=}')
 
 
 if __name__ == '__main__':
-    solve_part_one()
-    solve_part_two()
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    ga_opcode_filename = os.path.join(this_dir, "gravityassists.txt")
+    ga_program = read_opcode(ga_opcode_filename)
+
+    p1_solve(ga_program)
+    p2_brute_force_inputs(ga_program)
