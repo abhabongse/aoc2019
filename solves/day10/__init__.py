@@ -13,6 +13,27 @@ asteroids_filename = os.path.join(this_dir, "asteroids.txt")
 selector = 200
 
 
+class Vector2D(NamedTuple):
+    x: int
+    y: int
+
+    def __add__(self, other: 'Vector2D') -> 'Vector2D':
+        return Vector2D(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other: 'Vector2D') -> 'Vector2D':
+        return Vector2D(self.x - other.x, self.y - other.y)
+
+    def norm2(self) -> int:
+        return self.x ** 2 + self.y ** 2
+
+    def reduce(self) -> 'Vector2D':
+        d = math.gcd(self.x, self.y)
+        return Vector2D(self.x // d, self.y // d)
+
+    def wangle(self) -> float:
+        return math.pi - math.atan2(self.x, self.y)
+
+
 def roundrobin(*iterables):
     """
     roundrobin('ABC', 'D', 'EF') --> A D E B F C
@@ -31,38 +52,17 @@ def roundrobin(*iterables):
             nexts = itertools.cycle(itertools.islice(nexts, num_active))
 
 
-class Vector(NamedTuple):
-    x: int
-    y: int
-
-    def __add__(self, other: 'Vector') -> 'Vector':
-        return Vector(self.x + other.x, self.y + other.y)
-
-    def __sub__(self, other: 'Vector') -> 'Vector':
-        return Vector(self.x - other.x, self.y - other.y)
-
-    def norm2(self) -> int:
-        return self.x ** 2 + self.y ** 2
-
-    def reduce(self) -> 'Vector':
-        d = math.gcd(self.x, self.y)
-        return Vector(self.x // d, self.y // d)
-
-    def wangle(self) -> float:
-        return math.pi - math.atan2(self.x, self.y)
-
-
-def read_asteroids(filename: str) -> List[Vector]:
+def read_asteroids(filename: str) -> List[Vector2D]:
     with open(filename) as fobj:
         return [
-            Vector(col, row)
+            Vector2D(col, row)
             for row, line in enumerate(fobj)
             for col, char in enumerate(line.strip())
             if char == '#'
         ]
 
 
-def find_best_station(asteroids: List[Vector]) -> Vector:
+def find_best_station(asteroids: List[Vector2D]) -> Vector2D:
     visible_counts = {}
     for base in asteroids:
         vectors = (  # orbiters in relative vector form
@@ -76,7 +76,7 @@ def find_best_station(asteroids: List[Vector]) -> Vector:
     return station
 
 
-def solve_part_two(asteroids: List[Vector], station: Vector):
+def solve_part_two(asteroids: List[Vector2D], station: Vector2D):
     vectors = (
         orbiter - station
         for orbiter in asteroids

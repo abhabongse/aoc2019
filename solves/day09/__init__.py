@@ -13,11 +13,6 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 boost_filename = os.path.join(this_dir, "boost.txt")
 
 
-def read_boost_program(filename: str) -> Program:
-    with open(filename) as fobj:
-        return tuple(int(token) for token in fobj.read().split(","))
-
-
 class CustomExecution(Execution):
     boost_mode: int
     count: int
@@ -38,6 +33,11 @@ class CustomExecution(Execution):
     async def output(self, value: int) -> None:
         await super().output(value)
         self.outputs.append(value)
+
+
+def read_boost_program(filename: str) -> Program:
+    with open(filename) as fobj:
+        return tuple(int(token) for token in fobj.read().split(","))
 
 
 async def solve_part_one():
