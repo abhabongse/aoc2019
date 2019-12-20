@@ -10,10 +10,6 @@ InputFunc = Callable[[], int]
 OutputFunc = Callable[[int], None]
 
 
-################################
-# Helper classes and functions #
-################################
-
 class ProgramStopped(Exception):
     pass
 
@@ -29,10 +25,6 @@ class Interaction:
     def output(self, value: int) -> None:
         print(f"Integer output: {value!r}")
 
-
-##############
-# Main class #
-##############
 
 class Machine:
     """

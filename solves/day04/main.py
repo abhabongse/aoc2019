@@ -2,17 +2,6 @@
 Day 4: Secure Container
 """
 
-#########
-# Input #
-#########
-
-lower = 271973
-upper = 785961
-
-
-#############
-# Functions #
-#############
 
 def fits_criteria(number: int) -> bool:
     digits = str(number)
@@ -31,22 +20,27 @@ def fits_super_criteria(number: int) -> bool:
                     for d in range(10)))
 
 
-def solve_part_one():
+def p1_number_on_criteria(lower: int, upper: int):
     valid_numbers = [
         number for number in range(lower, upper + 1)
         if fits_criteria(number)
     ]
-    print("Part one:", len(valid_numbers), valid_numbers)
+    count = len(valid_numbers)
+    print(f"Part one: {count=}")
 
 
-def solve_part_two():
+def p2_number_on_super_criteria(lower: int, upper: int):
     valid_numbers = [
         number for number in range(lower, upper + 1)
         if fits_super_criteria(number)
     ]
-    print("Part two:", len(valid_numbers), valid_numbers)
+    count = len(valid_numbers)
+    print(f"Part two: {count=}")
 
 
 if __name__ == '__main__':
-    solve_part_one()
-    solve_part_two()
+    lower = 271973
+    upper = 785961
+
+    p1_number_on_criteria(lower, upper)
+    p2_number_on_super_criteria(lower, upper)

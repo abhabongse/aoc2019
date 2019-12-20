@@ -9,10 +9,6 @@ from typing import Dict, List, Tuple
 import numpy as np
 from tqdm import trange
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-orbits_sample_filename = os.path.join(this_dir, "sample.txt")
-orbits_filename = os.path.join(this_dir, "orbits.txt")
-
 AdjList = Dict[str, List[str]]
 
 
@@ -62,16 +58,15 @@ def transitive_closure(mat: np.ndarray) -> np.ndarray:
     return res
 
 
-def solve_part_one():
+def p1_count_reachable_pairs(orbit_pairs: List[Tuple[str, str]]):
     """
     Find the reachable pair of vertices using Adjacency Matrix
     with Transitive Closure finding through multiplication.
     """
-    orbit_pairs = read_orbits(orbits_filename)
     mat = orbits_to_transitive_mat(orbit_pairs)
     mat = transitive_closure(mat)
     result = np.sum(mat) - mat.shape[0]
-    print(result)
+    print(f"Part one: {result=}")
 
 
 ################
@@ -99,17 +94,24 @@ def bfs(adjlist: AdjList, src: str, dest: str) -> int:
     return distances[dest]
 
 
-def solve_part_two():
+def p2_path_length(orbit_pairs: List[Tuple[str, str]]):
     """
     Use Breadth-First Search to find distance between two vertices
     of an unweighted graph.
     """
-    orbit_pairs = read_orbits(orbits_filename)
     adjlist = orbits_to_adjacency_list(orbit_pairs)
     result = bfs(adjlist, 'YOU', 'SAN') - 2  # remove two steps
-    print(result)
+    print(f"Part two: {result=}")
 
+
+################
+# Main program #
+################
 
 if __name__ == '__main__':
-    solve_part_one()
-    solve_part_two()
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    orbits_filename = os.path.join(this_dir, "orbits.txt")
+    orbit_pairs = read_orbits(orbits_filename)
+
+    p1_count_reachable_pairs(orbit_pairs)
+    p2_path_length(orbit_pairs)

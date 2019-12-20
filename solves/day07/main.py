@@ -10,9 +10,6 @@ import uvloop
 
 from solves.day07.machine import Execution, Program
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-amplifier_filename = os.path.join(this_dir, "amplifier.txt")
-
 
 def read_amplifier_program(filename: str) -> Program:
     with open(filename) as fobj:
@@ -63,13 +60,13 @@ async def test_thruster(
     return current_signal
 
 
-async def solve_part_one():
-    amplifier_program = read_amplifier_program(amplifier_filename)
+async def solve_part_one(amplifier_program: Program):
     signals = [
         await test_thruster(amplifier_program, phase_setting)
         for phase_setting in itertools.permutations([0, 1, 2, 3, 4])
     ]
-    print(max(signals))
+    best_signal = max(signals)
+    print(f"Part one: {best_signal=}")
 
 
 ################
@@ -147,13 +144,13 @@ async def test_wired_thruster(
     return value
 
 
-async def solve_part_two():
-    amplifier_program = read_amplifier_program(amplifier_filename)
+async def solve_part_two(amplifier_program: Program):
     signals = [
         await test_wired_thruster(amplifier_program, phase_setting)
         for phase_setting in itertools.permutations([5, 6, 7, 8, 9])
     ]
-    print(max(signals))
+    best_signal = max(signals)
+    print(f"Part two: {best_signal=}")
 
 
 ################
@@ -161,8 +158,12 @@ async def solve_part_two():
 ################
 
 async def main():
-    await solve_part_one()
-    await solve_part_two()
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    amplifier_opcode_filename = os.path.join(this_dir, "amplifier.txt")
+    amplifier_program = read_amplifier_program(amplifier_opcode_filename)
+
+    await solve_part_one(amplifier_program)
+    await solve_part_two(amplifier_program)
 
 
 if __name__ == '__main__':

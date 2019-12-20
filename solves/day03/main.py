@@ -54,32 +54,32 @@ def parse_walk_instrs(line: str) -> List[Walk]:
     return walks
 
 
-def walked_cells(instructions: Iterable[Walk]) -> Iterator[Vector2D]:
+def walked_cells(instrs: Iterable[Walk]) -> Iterator[Vector2D]:
     """
     Converts from a sequence of walking instructions from the point of origin
     into a sequence of traversed positions.
     """
     location = Vector2D(0, 0)
-    for direction, steps in instructions:
+    for direction, steps in instrs:
         for _ in range(steps):
             location += direction
             yield location
 
 
-def first_step_count_to_cells(instructions: Iterable[Walk]) -> Dict[Vector2D, int]:
+def first_step_count_to_cells(instrs: Iterable[Walk]) -> Dict[Vector2D, int]:
     """
     From the given walking instructions, computes the mapping
     from each traversed cell to the first step count to such position.
     """
     step_count_data = {}
-    for count, location in enumerate(walked_cells(instructions), start=1):
+    for count, location in enumerate(walked_cells(instrs), start=1):
         if location in step_count_data:
             continue  # already exists
         step_count_data[location] = count
     return step_count_data
 
 
-def p1_closest_intersection(fst_instrs, snd_instrs):
+def p1_closest_intersection(fst_instrs: List[Walk], snd_instrs: List[Walk]):
     fst_walked_cells = set(walked_cells(fst_instrs))
     snd_walked_cells = set(walked_cells(snd_instrs))
 
@@ -88,7 +88,7 @@ def p1_closest_intersection(fst_instrs, snd_instrs):
     print(f"Part one: {closest_norm1_dist=}")
 
 
-def p2_fewest_step_intersections(fst_instrs, snd_instrs):
+def p2_fewest_step_intersections(fst_instrs: List[Walk], snd_instrs: List[Walk]):
     fst_step_count_data = first_step_count_to_cells(fst_instrs)
     snd_steps_count_data = first_step_count_to_cells(snd_instrs)
 

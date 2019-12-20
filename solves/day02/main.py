@@ -36,12 +36,12 @@ def run_intcode_program(program: Iterable[int], noun: int, verb: int):
             raise RuntimeError
 
 
-def p1_solve(ga_program):
+def p1_solve(ga_program: List[int]):
     result = run_intcode_program(ga_program, 12, 2)
     print(f"Part one: {result=}")
 
 
-def p2_brute_force_inputs(ga_program):
+def p2_brute_force_inputs(ga_program: List[int]):
     target = 19690720
     for noun in range(100):
         for verb in range(100):
