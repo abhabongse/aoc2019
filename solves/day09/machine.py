@@ -4,7 +4,7 @@ Intcode computer.
 import asyncio
 import inspect
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Literal
+from typing import Callable, Dict, Iterable, Literal
 
 Program = Iterable[int]
 Memory = Dict[int, int]

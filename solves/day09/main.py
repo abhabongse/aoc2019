@@ -9,9 +9,6 @@ import uvloop
 
 from solves.day09.machine import Execution, Program
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-boost_filename = os.path.join(this_dir, "boost.txt")
-
 
 class CustomExecution(Execution):
     boost_mode: int
@@ -40,18 +37,18 @@ def read_boost_program(filename: str) -> Program:
         return tuple(int(token) for token in fobj.read().split(","))
 
 
-async def solve_part_one():
-    boost_program = read_boost_program(boost_filename)
+async def p1_normal_mode(boost_program: Program):
     executor = CustomExecution(boost_program, 1)
     await executor.run()
-    print(executor.outputs[-1])
+    output = executor.outputs[-1]
+    print(f"Part one: {output=}")
 
 
-async def solve_part_two():
-    boost_program = read_boost_program(boost_filename)
+async def p2_feedback_mode(boost_program: Program):
     executor = CustomExecution(boost_program, 2)
     await executor.run()
-    print(executor.outputs[-1])
+    output = executor.outputs[-1]
+    print(f"Part two: {output=}")
 
 
 ################
@@ -59,8 +56,12 @@ async def solve_part_two():
 ################
 
 async def main():
-    await solve_part_one()
-    await solve_part_two()
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    boost_opcode_filename = os.path.join(this_dir, "boost.txt")
+    boost_program = read_boost_program(boost_opcode_filename)
+
+    await p1_normal_mode(boost_program)
+    await p2_feedback_mode(boost_program)
 
 
 if __name__ == '__main__':

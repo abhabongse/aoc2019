@@ -7,11 +7,6 @@ import os
 from collections import defaultdict
 from typing import List, NamedTuple
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-asteroids_filename = os.path.join(this_dir, "asteroids.txt")
-
-selector = 200
-
 
 class Vector2D(NamedTuple):
     x: int
@@ -62,7 +57,7 @@ def read_asteroids(filename: str) -> List[Vector2D]:
         ]
 
 
-def find_best_station(asteroids: List[Vector2D]) -> Vector2D:
+def p1_find_best_station(asteroids: List[Vector2D]) -> Vector2D:
     visible_counts = {}
     for base in asteroids:
         vectors = (  # orbiters in relative vector form
@@ -76,7 +71,7 @@ def find_best_station(asteroids: List[Vector2D]) -> Vector2D:
     return station
 
 
-def solve_part_two(asteroids: List[Vector2D], station: Vector2D):
+def p2_roundrobin(asteroids: List[Vector2D], station: Vector2D, selector: int):
     vectors = (
         orbiter - station
         for orbiter in asteroids
@@ -102,11 +97,11 @@ def solve_part_two(asteroids: List[Vector2D], station: Vector2D):
     print(f"{selector}th vaporized asteroid is {selected_asteroid}")
 
 
-def main():
-    asteroids = read_asteroids(asteroids_filename)
-    station = find_best_station(asteroids)  # part one
-    solve_part_two(asteroids, station)
-
-
 if __name__ == '__main__':
-    main()
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    asteroids_filename = os.path.join(this_dir, "asteroids.txt")
+    asteroids = read_asteroids(asteroids_filename)
+
+    station = p1_find_best_station(asteroids)
+    selector = 200
+    p2_roundrobin(asteroids, station, selector)

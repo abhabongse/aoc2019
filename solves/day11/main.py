@@ -10,9 +10,6 @@ import uvloop
 
 from solves.day09.machine import Execution, Program
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-painter_filename = os.path.join(this_dir, "painter.txt")
-
 
 class Vector2D(NamedTuple):
     x: int
@@ -89,16 +86,14 @@ def paint_pixels(canvas: Dict[Vector2D, int]):
     print('\n'.join(''.join(line) for line in reversed(board)))
 
 
-async def solve_part_one():
-    painter_program = read_painter_program(painter_filename)
+async def p1_false_paint(painter_program: Program):
     executor = PainterExecution(painter_program)
     await executor.run()
     result = len(executor.canvas)
     print(f"Painted panels: {result}")
 
 
-async def solve_part_two():
-    painter_program = read_painter_program(painter_filename)
+async def p2_true_paint(painter_program: Program):
     executor = PainterExecution(painter_program, starting_panel=1)
     await executor.run()
     paint_pixels(executor.canvas)
@@ -109,8 +104,12 @@ async def solve_part_two():
 ################
 
 async def main():
-    await solve_part_one()
-    await solve_part_two()
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    painter_opcode_filename = os.path.join(this_dir, "painter.txt")
+    painter_program = read_painter_program(painter_opcode_filename)
+
+    await p1_false_paint(painter_program)
+    await p2_true_paint(painter_program)
 
 
 if __name__ == '__main__':

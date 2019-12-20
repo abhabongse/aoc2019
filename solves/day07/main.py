@@ -60,7 +60,7 @@ async def test_thruster(
     return current_signal
 
 
-async def solve_part_one(amplifier_program: Program):
+async def p1_solve(amplifier_program: Program):
     signals = [
         await test_thruster(amplifier_program, phase_setting)
         for phase_setting in itertools.permutations([0, 1, 2, 3, 4])
@@ -144,7 +144,7 @@ async def test_wired_thruster(
     return value
 
 
-async def solve_part_two(amplifier_program: Program):
+async def p2_solve(amplifier_program: Program):
     signals = [
         await test_wired_thruster(amplifier_program, phase_setting)
         for phase_setting in itertools.permutations([5, 6, 7, 8, 9])
@@ -162,8 +162,8 @@ async def main():
     amplifier_opcode_filename = os.path.join(this_dir, "amplifier.txt")
     amplifier_program = read_amplifier_program(amplifier_opcode_filename)
 
-    await solve_part_one(amplifier_program)
-    await solve_part_two(amplifier_program)
+    await p1_solve(amplifier_program)
+    await p2_solve(amplifier_program)
 
 
 if __name__ == '__main__':
