@@ -7,10 +7,10 @@ from typing import List
 
 import uvloop
 
-from solves.day09.machine import Execution, Program
+from solves.day09.machine import IntcodeMachine, Program
 
 
-class CustomExecution(Execution):
+class BoostMachine(IntcodeMachine):
     boost_mode: int
     count: int
     outputs: List[int]
@@ -21,14 +21,13 @@ class CustomExecution(Execution):
         self.count = 0
         self.outputs = []
 
-    async def input(self) -> int:
+    async def get_input(self) -> int:
         self.count += 1
         if self.count == 2:
             print("Warning: input sent more than once")
         return self.boost_mode
 
-    async def output(self, value: int) -> None:
-        await super().output(value)
+    async def set_output(self, value: int) -> None:
         self.outputs.append(value)
 
 
@@ -38,14 +37,14 @@ def read_boost_program(filename: str) -> Program:
 
 
 async def p1_normal_mode(boost_program: Program):
-    executor = CustomExecution(boost_program, 1)
+    executor = BoostMachine(boost_program, 1)
     await executor.run()
     output = executor.outputs[-1]
     print(f"Part one: {output=}")
 
 
 async def p2_feedback_mode(boost_program: Program):
-    executor = CustomExecution(boost_program, 2)
+    executor = BoostMachine(boost_program, 2)
     await executor.run()
     output = executor.outputs[-1]
     print(f"Part two: {output=}")

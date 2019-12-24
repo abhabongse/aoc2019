@@ -4,11 +4,11 @@ Day 11: Space Police
 import asyncio
 import os
 from collections import defaultdict
-from typing import Dict, List, NamedTuple
+from typing import Dict, NamedTuple
 
 import uvloop
 
-from solves.day09.machine import IntcodeMachine, Program
+from solves.day09.machine import PipeIntcodeMachine, Program
 
 
 ####################
@@ -30,11 +30,10 @@ class Vector2D(NamedTuple):
 # Main functions #
 ##################
 
-class PainterMachine(IntcodeMachine):
+class Drawer:
     canvas: Dict[Vector2D, int]
     loc: Vector2D
     heading: int
-    output_buffer: List[int]
 
     heading_map = {
         0: Vector2D(0, 1),
@@ -44,28 +43,35 @@ class PainterMachine(IntcodeMachine):
     }
 
     def __init__(self, program: Program, starting_panel: int = 0):
-        super().__init__(program)
+        self.machine = PipeIntcodeMachine(program)
         self.canvas = defaultdict(int)
         self.loc = Vector2D(0, 0)
         self.canvas[self.loc] = starting_panel
         self.heading = 0
-        self.output_buffer = []
 
-    async def get_input(self) -> int:
-        return self.canvas[self.loc]
+    async def draw(self):
+        loop_task = asyncio.create_task(self.loop())
+        await self.machine.run()
+        loop_task.cancel()
+        try:
+            await loop_task
+        except asyncio.CancelledError:
+            pass
 
-    async def set_output(self, value: int) -> None:
-        self.output_buffer.append(value)
-        if len(self.output_buffer) == 2:
-            self.first_output(self.output_buffer[0])
-            self.second_output(self.output_buffer[1])
-            self.output_buffer = []
+    async def loop(self):
+        while True:
+            await self.step()
+            await asyncio.sleep(0.001)
 
-    def first_output(self, value: int) -> None:
-        self.canvas[self.loc] = value
+    async def step(self):
+        old_value = self.canvas[self.loc]
+        await self.machine.input_values.put(old_value)
 
-    def second_output(self, value: int) -> None:
-        self.heading = (self.heading + 2 * value - 1) % 4
+        new_value = await self.machine.output_values.get()
+        self.canvas[self.loc] = new_value
+
+        turn = await self.machine.output_values.get()
+        self.heading = (self.heading + 2 * turn - 1) % 4
         self.loc += self.heading_map[self.heading]
 
 
@@ -95,16 +101,16 @@ def paint_pixels(canvas: Dict[Vector2D, int]):
 
 
 async def p1_false_paint(painter_program: Program):
-    machine = PainterMachine(painter_program)
-    await machine.run()
-    result = len(machine.canvas)
+    drawer = Drawer(painter_program)
+    await drawer.draw()
+    result = len(drawer.canvas)
     print(f"Painted panels: {result}")
 
 
 async def p2_true_paint(painter_program: Program):
-    machine = PainterMachine(painter_program, starting_panel=1)
-    await machine.run()
-    paint_pixels(machine.canvas)
+    drawer = Drawer(painter_program, starting_panel=1)
+    await drawer.draw()
+    paint_pixels(drawer.canvas)
 
 
 ################
