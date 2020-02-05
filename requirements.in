@@ -1,0 +1,5 @@
+jupyter
+numpy
+pip-tools
+tqdm
+uvloop
