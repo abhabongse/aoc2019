@@ -22,6 +22,7 @@ def main():
     # Part 2
     fst_positions_with_counts = counts_to_walked_positions(fst_moves)
     snd_positions_with_counts = counts_to_walked_positions(snd_moves)
+    crossed_positions = fst_positions_with_counts.keys() & snd_positions_with_counts.keys()
     p2_answer = min(
         fst_positions_with_counts[pos] + snd_positions_with_counts[pos]
         for pos in crossed_positions
