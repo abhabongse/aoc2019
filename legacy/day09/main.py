@@ -7,7 +7,7 @@ from typing import List
 
 import uvloop
 
-from solves.day09.machine import IntcodeMachine, Program
+from legacy.day09.machine import IntcodeMachine, Program
 
 
 class BoostMachine(IntcodeMachine):

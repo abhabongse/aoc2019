@@ -8,7 +8,7 @@ from typing import Dict, List, NamedTuple
 
 import uvloop
 
-from solves.day09.machine import IntcodeMachine, Program
+from legacy.day09.machine import IntcodeMachine, Program
 
 
 ####################

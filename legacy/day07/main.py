@@ -8,7 +8,7 @@ from typing import Optional, Sequence
 
 import uvloop
 
-from solves.day07.machine import Execution, Program
+from legacy.day07.machine import Execution, Program
 
 
 def read_amplifier_program(filename: str) -> Program:

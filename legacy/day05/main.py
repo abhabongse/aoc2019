@@ -3,7 +3,7 @@ Day 5: Sunny with a Chance of Asteroids
 """
 import os
 
-from solves.day05.machine import Interaction, Machine, Program
+from legacy.day05.machine import Interaction, Machine, Program
 
 
 def read_opcode(filename: str) -> Program:
