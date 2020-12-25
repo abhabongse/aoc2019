@@ -13,7 +13,7 @@ def main():
     instructions = read_input_file(input_file)
 
     # Part 1
-    program = Program.special_init(instructions, noun=12, verb=2)
+    program = Program(instructions, noun=12, verb=2)
     program.run_until_terminate()
     p1_answer = program.memory[0]
     print(p1_answer)
@@ -21,13 +21,13 @@ def main():
     # Part 2
     target = 19690720
     for noun, verb in itertools.product(range(100), repeat=2):
-        program = Program.special_init(instructions, noun, verb)
+        program = Program(instructions, noun, verb)
         program.run_until_terminate()
         if program.memory[0] == target:
             print(f"{noun=} and {verb=} (output {100 * noun + verb})")
 
 
-@dataclass
+@dataclass(init=False)
 class Program:
     """
     Represents state of a program.
@@ -35,12 +35,10 @@ class Program:
     memory: list[int]
     pc: int = 0
 
-    @classmethod
-    def special_init(cls, instructions: Sequence[int], noun: int, verb: int) -> Program:
-        instructions = list(instructions)
-        instructions[1] = noun
-        instructions[2] = verb
-        return Program(instructions)
+    def __init__(self, instructions: Sequence[int], noun: int, verb: int):
+        self.memory = list(instructions)
+        self.memory[1] = noun
+        self.memory[2] = verb
 
     def run_until_terminate(self):
         while True:
@@ -64,17 +62,17 @@ class Program:
         args = [self.memory[self.pc + 1 + pos] for pos in range(nargs)]
         method(*args)
 
-    def execute_01(self, fst_param, snd_param, dest_param, /):
+    def execute_01(self, fst_param: int, snd_param: int, dest_param: int, /):
         """
-        Add two values locating at fst_param and snd_param
+        ADD two values locating at fst_param and snd_param
         and store the result at target_param.
         """
         self.memory[dest_param] = self.memory[fst_param] + self.memory[snd_param]
         self.pc += 4
 
-    def execute_02(self, fst_param, snd_param, dest_param, /):
+    def execute_02(self, fst_param: int, snd_param: int, dest_param: int, /):
         """
-        Add two values locating at fst_param and snd_param
+        MULTIPLY two values locating at fst_param and snd_param
         and store the result at target_param.
         """
         self.memory[dest_param] = self.memory[fst_param] * self.memory[snd_param]
