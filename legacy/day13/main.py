@@ -7,7 +7,6 @@ import time
 from typing import Dict, List, NamedTuple, Optional
 
 import uvloop
-
 from legacy.day09.machine import IntcodeMachine, Program
 
 

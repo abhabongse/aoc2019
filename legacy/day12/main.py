@@ -31,14 +31,16 @@ class State(NamedTuple):
     pos: int
     vel: int = 0
 
-    def next(self, acl: int) -> 'State':
+    def go_next(self, acl: int) -> 'State':
         next_vel = self.vel + acl
         next_pos = self.pos + next_vel
         return State(next_pos, next_vel)
 
     def grav_single(self, other: 'State') -> int:
-        if other.pos > self.pos: return 1
-        if other.pos < self.pos: return -1
+        if other.pos > self.pos:
+            return 1
+        if other.pos < self.pos:
+            return -1
         return 0
 
     def gravitation(self, others: Iterable['State']) -> int:
@@ -46,7 +48,7 @@ class State(NamedTuple):
 
     def next_from_gravitation(self, others: Iterable['State']) -> 'State':
         acl = self.gravitation(others)
-        return self.next(acl)
+        return self.go_next(acl)
 
 
 class PeriodAndOffset(NamedTuple):
@@ -104,6 +106,7 @@ def energy(x_state: State, y_state: State, z_state: State) -> int:
     pot = abs(x_state.pos) + abs(y_state.pos) + abs(z_state.pos)
     kin = abs(x_state.vel) + abs(y_state.vel) + abs(z_state.vel)
     return pot * kin
+
 
 def p1_time_step(
         x_states: List[State],
