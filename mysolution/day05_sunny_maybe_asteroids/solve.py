@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from mysolution.day05_sunny_maybe_asteroids.machine import Interface, Program
+from mysolution.day05_sunny_maybe_asteroids.machine import AutomatedInterface, Program
 
 
 def main():
@@ -11,14 +11,18 @@ def main():
     instructions = read_input_file(input_file)
 
     # Part 1
-    program = Program(instructions, Interface())
-    print("Running program in part 1:")
+    interface = AutomatedInterface(in_queue=[1])
+    program = Program(instructions, interface)
     program.run_until_terminate()
+    p1_answer = interface.out_queue[-1]
+    print(p1_answer)
 
     # Part 2
-    program = Program(instructions, Interface())
-    print("Running program in part 2:")
+    interface = AutomatedInterface(in_queue=[5])
+    program = Program(instructions, interface)
     program.run_until_terminate()
+    p2_answer = interface.out_queue[-1]
+    print(p2_answer)
 
 
 def read_input_file(filename: str) -> list[int]:

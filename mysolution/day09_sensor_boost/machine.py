@@ -158,6 +158,7 @@ class Program:
             instr //= 10
 
 
+@dataclass
 class Interface:
     """
     Provides interface between intcode machine and the python world.
@@ -168,6 +169,26 @@ class Interface:
 
     def output(self, value: int):
         print(f"Integer output: {value!r}")
+
+
+@dataclass(init=False)
+class AutomatedInterface(Interface):
+    """
+    Thread-safe queue-based interface to intcode machine.
+    """
+    in_queue: collections.deque[int]
+    out_queue: collections.deque[int]
+
+    def __init__(self, in_queue: Sequence[int] = None, out_queue: Sequence[int] = None):
+        self.in_queue = collections.deque(in_queue or [])
+        self.out_queue = collections.deque(out_queue or [])
+
+    def input(self) -> int:
+        value = self.in_queue.popleft()
+        return value
+
+    def output(self, value: int):
+        self.out_queue.append(value)
 
 
 class Parameter(NamedTuple):
