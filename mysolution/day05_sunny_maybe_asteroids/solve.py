@@ -26,11 +26,7 @@ def read_input_file(filename: str) -> list[int]:
     Extracts a list of intcode program instructions.
     """
     with open(filename) as fobj:
-        instructions = [
-            int(token)
-            for line in fobj
-            for token in line.split(',')
-        ]
+        instructions = [int(token) for token in fobj.read().split(',')]
     return instructions
 
 
