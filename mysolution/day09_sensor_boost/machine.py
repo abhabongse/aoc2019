@@ -13,12 +13,14 @@ class Program:
     """
     memory: list[int]
     interface: Interface
-    pc: int = 0
-    relative_base: int = 0
+    pc: int
+    relative_base: int
 
     def __init__(self, instructions: Sequence[int], interface: Interface):
         self.memory = collections.defaultdict(int, enumerate(instructions))  # noqa
         self.interface = interface
+        self.pc = 0
+        self.relative_base = 0
 
     def run_until_terminate(self):
         while True:

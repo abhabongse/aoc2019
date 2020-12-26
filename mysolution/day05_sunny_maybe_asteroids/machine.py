@@ -13,11 +13,12 @@ class Program:
     """
     memory: list[int]
     interface: Interface
-    pc: int = 0
+    pc: int
 
     def __init__(self, instructions: Sequence[int], interface: Interface):
         self.memory = list(instructions)
         self.interface = interface
+        self.pc = 0
 
     def run_until_terminate(self):
         while True:

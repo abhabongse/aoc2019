@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import os
-from typing import TypeVar
 
 from mysolution.day09_sensor_boost.machine import AutomatedInterface, Program
-
-T = TypeVar('T')
 
 
 def main():

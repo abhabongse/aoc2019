@@ -17,7 +17,7 @@ def main():
 
     # Part 2
     image = decode_image(layers)
-    p2_answer = print_image(image)
+    p2_answer = paint_image(image)
     print(p2_answer)
 
 
@@ -40,7 +40,7 @@ def decode_image(layers: np.ndarray) -> np.ndarray:
     return canvas
 
 
-def print_image(image: np.ndarray) -> str:
+def paint_image(image: np.ndarray) -> str:
     builder = []
     for line in image:
         for char in line:

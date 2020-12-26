@@ -6,13 +6,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from queue import Empty, SimpleQueue
 from threading import Thread
-from typing import NamedTuple, TypeVar
+from typing import NamedTuple
 
 import more_itertools
 
 from mysolution.day05_sunny_maybe_asteroids.machine import Interface, Program, ProgramTerminated
-
-T = TypeVar('T')
 
 
 def main():
