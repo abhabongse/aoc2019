@@ -17,8 +17,7 @@ def main():
 
     # Part 2
     image = decode_image(layers)
-    p2_answer = paint_image(image)
-    print(p2_answer)
+    paint_image(image)
 
 
 def split_layers(digits: str, width: int, height: int) -> np.ndarray:
@@ -40,13 +39,10 @@ def decode_image(layers: np.ndarray) -> np.ndarray:
     return canvas
 
 
-def paint_image(image: np.ndarray) -> str:
-    builder = []
+def paint_image(image: np.ndarray):
     for line in image:
-        for char in line:
-            builder.append('#' if char else ' ')
-        builder.append('\n')
-    return ''.join(builder)
+        buffer = ''.join('#' if char else ' ' for char in line)
+        print(buffer)
 
 
 def read_input_file(filename: str) -> str:

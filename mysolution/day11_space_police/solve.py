@@ -21,8 +21,7 @@ def main():
     # Part 2
     machine = Machine(instructions, PainterInterface(starting_panel=1))
     machine.run_until_terminate()
-    p2_answer = paint_image(machine.interface.canvas)
-    print(p2_answer)
+    machine.interface.paint_image()
 
 
 class Vec(NamedTuple):
@@ -83,18 +82,14 @@ class PainterInterface(Interface):
             raise ValueError(f"unknown turning instruction: {turn!r}")
         self.robot_pos += self.robot_heading
 
+    def paint_canvas(self):
+        black_pixels = frozenset(pixel for pixel, blacked in self.canvas.items() if blacked)
+        x_bound = range(min(p.x for p in black_pixels), max(p.x for p in black_pixels) + 1)
+        y_bound = range(min(p.y for p in black_pixels), max(p.y for p in black_pixels) + 1)
 
-def paint_image(canvas: dict[Vec, int]) -> str:
-    black_pixels = frozenset(pixel for pixel, blacked in canvas.items() if blacked)
-    x_bound = range(min(p.x for p in black_pixels), max(p.x for p in black_pixels) + 1)
-    y_bound = range(min(p.y for p in black_pixels), max(p.y for p in black_pixels) + 1)
-
-    builder = []
-    for y in reversed(y_bound):
-        for x in x_bound:
-            builder.append('#' if Vec(x, y) in black_pixels else ' ')
-        builder.append('\n')
-    return ''.join(builder)
+        for y in reversed(y_bound):
+            buffer = ''.join('#' if Vec(x, y) in black_pixels else ' ' for x in x_bound)
+            print(buffer)
 
 
 if __name__ == '__main__':
