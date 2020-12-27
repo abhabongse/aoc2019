@@ -4,26 +4,24 @@ import os
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from mysolution.day09_sensor_boost.machine import Interface, Program
+from mysolution.machine import Interface, Machine, load_instructions
 
 
 def main():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(this_dir, 'input.txt')
-    instructions = read_input_file(input_file)
+    instructions = load_instructions(input_file)
 
     # Part 1
-    interface = PainterInterface(starting_panel=0)
-    program = Program(instructions, interface)
-    program.run_until_terminate()
-    p1_answer = len(interface.canvas)
+    machine = Machine(instructions, PainterInterface(starting_panel=0))
+    machine.run_until_terminate()
+    p1_answer = len(machine.interface.canvas)
     print(p1_answer)
 
     # Part 2
-    interface = PainterInterface(starting_panel=1)
-    program = Program(instructions, interface)
-    program.run_until_terminate()
-    p2_answer = paint_image(interface.canvas)
+    machine = Machine(instructions, PainterInterface(starting_panel=1))
+    machine.run_until_terminate()
+    p2_answer = paint_image(machine.interface.canvas)
     print(p2_answer)
 
 
@@ -97,19 +95,6 @@ def paint_image(canvas: dict[Vec, int]) -> str:
             builder.append('#' if Vec(x, y) in black_pixels else ' ')
         builder.append('\n')
     return ''.join(builder)
-
-
-def read_input_file(filename: str) -> list[int]:
-    """
-    Extracts a list of intcode program instructions.
-    """
-    with open(filename) as fobj:
-        instructions = [
-            int(token)
-            for line in fobj
-            for token in line.split(',')
-        ]
-    return instructions
 
 
 if __name__ == '__main__':

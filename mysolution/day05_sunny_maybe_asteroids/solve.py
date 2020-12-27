@@ -2,36 +2,25 @@ from __future__ import annotations
 
 import os
 
-from mysolution.day05_sunny_maybe_asteroids.machine import AutomatedInterface, Program
+from mysolution.machine import Machine, PreProgrammedInterface, load_instructions
 
 
 def main():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(this_dir, 'input.txt')
-    instructions = read_input_file(input_file)
+    instructions = load_instructions(input_file)
 
     # Part 1
-    interface = AutomatedInterface(in_queue=[1])
-    program = Program(instructions, interface)
-    program.run_until_terminate()
-    p1_answer = interface.out_queue[-1]
+    machine = Machine(instructions, PreProgrammedInterface(in_queue=[1]))
+    machine.run_until_terminate()
+    p1_answer = machine.interface.out_queue[-1]
     print(p1_answer)
 
     # Part 2
-    interface = AutomatedInterface(in_queue=[5])
-    program = Program(instructions, interface)
-    program.run_until_terminate()
-    p2_answer = interface.out_queue[-1]
+    machine = Machine(instructions, PreProgrammedInterface(in_queue=[5]))
+    machine.run_until_terminate()
+    p2_answer = machine.interface.out_queue[-1]
     print(p2_answer)
-
-
-def read_input_file(filename: str) -> list[int]:
-    """
-    Extracts a list of intcode program instructions.
-    """
-    with open(filename) as fobj:
-        instructions = [int(token) for token in fobj.read().split(',')]
-    return instructions
 
 
 if __name__ == '__main__':

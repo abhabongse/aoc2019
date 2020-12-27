@@ -3,22 +3,27 @@ from __future__ import annotations
 import collections
 import inspect
 from dataclasses import dataclass
-from typing import Iterator, NamedTuple, Sequence
+from typing import Iterator, NamedTuple, Sequence, TypeVar
+
+InterfaceType = TypeVar('InterfaceType', bound='Interface')
 
 
 @dataclass(init=False)
-class Program:
+class Machine:
     """
-    Represents state of a program.
+    Implements an intcode machine which runs a program
+    (i.e. a given list of instructions).
     """
     memory: list[int]
-    interface: Interface
+    interface: InterfaceType
     pc: int
+    relative_base: int
 
-    def __init__(self, instructions: Sequence[int], interface: Interface):
-        self.memory = list(instructions)
+    def __init__(self, instructions: Sequence[int], interface: InterfaceType):
+        self.memory = collections.defaultdict(int, enumerate(instructions))  # noqa
         self.interface = interface
         self.pc = 0
+        self.relative_base = 0
 
     def run_until_terminate(self):
         while True:
@@ -46,18 +51,22 @@ class Program:
         method(*args)
 
     def read_value(self, param: Parameter):
-        if param.mode == 0:
+        if param.mode == 0:  # absolute address mode
             return self.memory[param.number]
-        elif param.mode == 1:
+        elif param.mode == 1:  # immediate mode
             return param.number
+        elif param.mode == 2:  # relative address mode
+            return self.memory[param.number + self.relative_base]
         else:
             raise RuntimeError(f"unknown mode: {param.mode!r}")
 
     def write_value(self, param: Parameter, value: int):
-        if param.mode == 0:
+        if param.mode == 0:  # absolute address mode
             self.memory[param.number] = value
-        elif param.mode == 1:
+        elif param.mode == 1:  # immediate mode
             raise RuntimeError(f"invalid mode: {param.mode!r}")
+        elif param.mode == 2:  # relative address mode
+            self.memory[param.number + self.relative_base] = value
         else:
             raise RuntimeError(f"unknown mode: {param.mode!r}")
 
@@ -135,6 +144,14 @@ class Program:
         self.write_value(dest, int(fst_value == snd_value))
         self.pc += 4
 
+    def execute_09(self, adjust: Parameter, /):
+        """
+        ADJUSTS the RELATIVE BASE of the relative position mode.
+        """
+        adjust_value = self.read_value(adjust)
+        self.relative_base += adjust_value
+        self.pc += 2
+
     def execute_99(self, /):
         raise ProgramTerminated
 
@@ -160,16 +177,16 @@ class Interface:
 
 
 @dataclass(init=False)
-class AutomatedInterface(Interface):
+class PreProgrammedInterface(Interface):
     """
     Thread-safe queue-based interface to intcode machine.
     """
     in_queue: collections.deque[int]
     out_queue: collections.deque[int]
 
-    def __init__(self, in_queue: Sequence[int] = None, out_queue: Sequence[int] = None):
+    def __init__(self, in_queue: Sequence[int] = None):
         self.in_queue = collections.deque(in_queue or [])
-        self.out_queue = collections.deque(out_queue or [])
+        self.out_queue = collections.deque()
 
     def input(self) -> int:
         value = self.in_queue.popleft()
@@ -186,3 +203,12 @@ class Parameter(NamedTuple):
 
 class ProgramTerminated(Exception):
     pass
+
+
+def load_instructions(filename: str) -> list[int]:
+    """
+    Loads a list of intcode program instructions from a given filename.
+    """
+    with open(filename) as fobj:
+        instructions = [int(token) for token in fobj.read().split(',')]
+    return instructions
