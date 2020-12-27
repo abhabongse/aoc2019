@@ -6,7 +6,7 @@ import os
 import re
 from collections.abc import Callable, Sequence
 from graphlib import TopologicalSorter
-from typing import NamedTuple, TypeVar
+from typing import NamedTuple, TypeVar  # noqa: I
 
 T = TypeVar('T')
 
@@ -81,7 +81,8 @@ def required_amounts_per_target(formulae: Sequence[Formula], target: Chemical) -
     return accm_required_amounts
 
 
-def binary_search_max_satisfied(values: Sequence[T], pred: Callable[[T], bool], lo: int = 0, hi: int = None) -> T:
+def binary_search_max_satisfied(values: Sequence[T], pred: Callable[[T], bool], lo: int = 0,
+                                hi: int = None) -> T:
     """
     Locates the index within the given sequence of values using binary search
     such that the following assertions are both true (assuming such index exists):
