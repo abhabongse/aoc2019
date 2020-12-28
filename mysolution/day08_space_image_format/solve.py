@@ -17,7 +17,7 @@ def main():
 
     # Part 2
     image = decode_image(layers)
-    paint_image(image)
+    print_image(image)
 
 
 def split_layers(digits: str, width: int, height: int) -> np.ndarray:
@@ -39,7 +39,7 @@ def decode_image(layers: np.ndarray) -> np.ndarray:
     return canvas
 
 
-def paint_image(image: np.ndarray):
+def print_image(image: np.ndarray):
     for line in image:
         buffer = ''.join('#' if char else ' ' for char in line)
         print(buffer)

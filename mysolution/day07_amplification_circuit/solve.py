@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import itertools
 import os
+import threading
 from collections.abc import Sequence
-from dataclasses import dataclass, field
-from queue import Empty, SimpleQueue
 from threading import Thread
 from typing import NamedTuple
 
 import more_itertools
 
-from mysolution.machine import Interface, Machine, ProgramTerminated, load_instructions
+from mysolution.machine import Machine, QueuedPort, load_instructions
 
 
 def main():
@@ -33,32 +32,6 @@ def main():
     print(p2_answer)
 
 
-@dataclass
-class QueueInterface(Interface):
-    """
-    Thread-safe queue-based interface to intcode machine.
-    """
-    in_queue: SimpleQueue[int]
-    out_queue: SimpleQueue[int]
-    most_recent_output: int = field(init=False, default=None)
-    terminated: bool = field(init=False, default=False)
-
-    def input(self) -> int:
-        while not self.terminated:
-            try:
-                return self.in_queue.get(timeout=0.2)
-            except Empty:
-                pass
-        raise ProgramTerminated
-
-    def output(self, value: int):
-        self.most_recent_output = value
-        self.out_queue.put(value)
-
-    def signal_terminate(self):
-        self.terminated = True
-
-
 class Environ(NamedTuple):
     machine: Machine
     thread: Thread
@@ -71,25 +44,23 @@ def test_sequential_wiring(instructions: Sequence[int], phases: Sequence[int]) -
     feed each of them the given phases settings,
     and watches for the final output signal.
     """
-    # Prepare queues
-    queues = [SimpleQueue() for _ in phases]
-    for index, phase in enumerate(phases):
-        queues[index].put(phase)
-    queues[0].put(0)
-    drain_queue = SimpleQueue()
+    # Prepare ports
+    ports = [QueuedPort(initial_values=[p]) for p in phases]
+    ports[0].put(0)
+    drain = QueuedPort()
 
-    # Initializes I/O interfaces, programs, and threads
+    # Initializes machines and threads
     environments = []
-    for in_queue, out_queue in more_itertools.windowed(queues + [drain_queue], n=2):
-        machine = Machine(instructions, QueueInterface(in_queue, out_queue))
-        thread = Thread(target=machine.run_until_terminate)
+    for input_port, output_port in more_itertools.windowed(ports + [drain], n=2):
+        machine = Machine(instructions, input_port, output_port)
+        thread = threading.Thread(target=machine.run_until_terminate)
         thread.start()
         environments.append(Environ(machine, thread))
 
     # Run until the last drain queue receives an output
-    value = drain_queue.get()
+    value = drain.get()
     for environ in environments:
-        environ.machine.interface.signal_terminate()
+        environ.machine.send_sigterm()
         environ.thread.join()
 
     return value
@@ -102,27 +73,26 @@ def test_sequential_looped_wiring(instructions: Sequence[int], phases: Sequence[
     feed each of them the given phases settings,
     and watches for the final output signal.
     """
-    # Prepare queues
-    queues = [SimpleQueue() for _ in phases]
-    for index, phase in enumerate(phases):
-        queues[index].put(phase)
-    queues[0].put(0)
+    # Prepare ports
+    ports = [QueuedPort(initial_values=[p]) for p in phases]
+    ports[0].put(0)
 
     # Initializes I/O interfaces, programs, and threads
     environments = []
-    for in_queue, out_queue in more_itertools.windowed(queues + queues[:1], n=2):
-        machine = Machine(instructions, QueueInterface(in_queue, out_queue))
-        thread = Thread(target=machine.run_until_terminate)
+    for index, (input_port, output_port) in enumerate(more_itertools.windowed(ports + ports[:1], n=2)):
+        machine = Machine(instructions, input_port, output_port)
+        thread = threading.Thread(target=machine.run_until_terminate)
+        thread.name = f"thread-{index}"
         thread.start()
         environments.append(Environ(machine, thread))
 
     # Run until the last amplifier terminates
     environments[-1].thread.join()
     for environ in environments:
-        environ.machine.interface.signal_terminate()
+        environ.machine.send_sigterm()
         environ.thread.join()
 
-    return environments[-1].machine.interface.most_recent_output
+    return ports[0].tape[-1]
 
 
 if __name__ == '__main__':

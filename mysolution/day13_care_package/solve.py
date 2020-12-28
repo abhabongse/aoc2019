@@ -3,10 +3,11 @@ from __future__ import annotations
 import enum
 import os
 import time
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import InitVar, dataclass, field
 from typing import ClassVar
 
-from mysolution.machine import Interface, Machine, load_instructions
+from mysolution.machine import ProcessTerminated, QueuedPort, Machine, load_instructions
 
 
 def main():
@@ -15,9 +16,9 @@ def main():
     instructions = load_instructions(input_file)
 
     # Part 1
-    machine = Machine(instructions, ArcadeInterface())
+    machine = Machine(instructions, ArcadeQueuedPort())
     machine.run_until_terminate()
-    p1_answer = sum(tile == 2 for tile in machine.interface.canvas.values())
+    p1_answer = sum(tile == 2 for tile in machine.port.canvas.values())
     print(p1_answer)
 
     # Part 2
@@ -25,7 +26,7 @@ def main():
     # machine = Machine(instructions, ArcadeInterface())
     machine.memory[0] = 2  # insert coin
     machine.run_until_terminate()
-    p2_answer = machine.interface.score
+    p2_answer = machine.port.score
     print(p2_answer)
 
 
@@ -38,7 +39,43 @@ class Tile(enum.IntEnum):
 
 
 @dataclass
-class ArcadeInterface(Interface):
+class Arcade:
+    chip_instrs: InitVar[Sequence[int]]
+    paddle: int = field(init=False, default=None)
+    ball: int = field(init=False, default=None)
+    score: int = field(init=False, default=None)
+
+    joystick: QueuedPort = field(default_factory=QueuedPort, init=False)
+    display: QueuedPort = field(default_factory=QueuedPort, init=False)
+    chip: Machine = field(init=False)
+
+    tile_chars: ClassVar[str] = ' #$_o'
+
+    def __post_init__(self, chip_instrs: Sequence[int]):
+        self.chip = Machine(chip_instrs, self.joystick, self.display)
+
+    def run_until_terminate(self):
+        thread = threading.Thread(target=self._run_body)
+        thread.start()
+        self.chip.run_until_terminate()
+        thread.join()
+
+    def _run_body(self):
+        while True:
+            try:
+                self.execute_next()
+            except ProcessTerminated:
+                break
+
+    def execute_next(self):
+
+
+
+
+
+
+@dataclass
+class ArcadeQueuedPort(QueuedPort):
     canvas: dict[tuple[int, int], int] = field(init=False, default_factory=dict)
     out_buffer: list[int] = field(init=False, default_factory=list)
     paddle: int = field(init=False, default=None)
@@ -47,7 +84,7 @@ class ArcadeInterface(Interface):
     tile_chars: ClassVar[str] = ' #$_O'
 
     def input(self) -> int:
-        self.paint_board()
+        self.print_board()
         value = input("Enter Q or P (move left/right): ").strip()
         if value.upper() == 'Q':
             return -1
@@ -73,7 +110,7 @@ class ArcadeInterface(Interface):
             if value == Tile.BALL:
                 self.ball = x
 
-    def paint_board(self):
+    def print_board(self):
         x_bound = range(min(p[0] for p in self.canvas.keys()), max(p[0] for p in self.canvas.keys()) + 1)
         y_bound = range(min(p[1] for p in self.canvas.keys()), max(p[1] for p in self.canvas.keys()) + 1)
 
@@ -83,12 +120,12 @@ class ArcadeInterface(Interface):
 
 
 @dataclass
-class AutoArcadeInterface(ArcadeInterface):
+class AutoArcadeInterface(ArcadeQueuedPort):
     display_delay: float = None
 
     def input(self) -> int:
         if self.display_delay:
-            self.paint_board()
+            self.print_board()
             time.sleep(self.display_delay)
         if self.ball < self.paddle:
             return -1

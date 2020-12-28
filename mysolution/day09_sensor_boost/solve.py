@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 
-from mysolution.machine import Machine, PreProgrammedInterface, load_instructions
+import more_itertools
+
+from mysolution.machine import Machine, PrinterPort, QueuedPort, load_instructions
 
 
 def main():
@@ -11,15 +13,17 @@ def main():
     instructions = load_instructions(input_file)
 
     # Part 1
-    machine = Machine(instructions, PreProgrammedInterface(in_queue=[1]))
+    printer = PrinterPort()
+    machine = Machine(instructions, QueuedPort([1]), printer)
     machine.run_until_terminate()
-    p1_answer = machine.interface.out_queue[-1]
+    p1_answer = more_itertools.one(printer.tape)
     print(p1_answer)
 
     # Part 2
-    machine = Machine(instructions, PreProgrammedInterface(in_queue=[2]))
+    printer = PrinterPort()
+    machine = Machine(instructions, QueuedPort([2]), printer)
     machine.run_until_terminate()
-    p2_answer = machine.interface.out_queue[-1]
+    p2_answer = more_itertools.one(printer.tape)
     print(p2_answer)
 
 
