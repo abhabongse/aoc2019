@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import InitVar, dataclass, field
 from typing import NamedTuple
 
-from mysolution.machine import Machine, ProcessTerminated, QueuedPort, load_instructions
+from mysolution.machine import Machine, QueuePort, ResourceUnavailable, load_instructions
 
 
 def main():
@@ -53,35 +53,43 @@ class Vec(NamedTuple):
 class Painter:
     brain_instrs: InitVar[Sequence[int]]
     starting_panel: InitVar[int]
+
+    camera: QueuePort = field(init=False)
+    motor: QueuePort = field(init=False)
+    brain: Machine = field(init=False)
+    sigterm_flag: bool = field(default=False, init=False)
+
     robot_pos: Vec = Vec(0, 0)
     robot_heading: Vec = Vec(0, 1)
-    canvas: dict[Vec, int] = field(default_factory=dict, init=False)
-
-    camera: QueuedPort = field(default_factory=QueuedPort, init=False)
-    motor: QueuedPort = field(default_factory=QueuedPort, init=False)
-    brain: Machine = field(init=False)
+    canvas: dict[Vec, int] = field(init=False)
 
     def __post_init__(self, brain_instrs: Sequence[int], starting_panel: int):
+        self.camera = QueuePort()
+        self.motor = QueuePort()
         self.brain = Machine(brain_instrs, self.camera, self.motor)
-        self.canvas[self.robot_pos] = starting_panel
+        self.canvas = {self.robot_pos: starting_panel}
+
+    def sigterm_received(self) -> bool:
+        return self.sigterm_flag
 
     def run_until_terminate(self):
-        thread = threading.Thread(target=self._run_body)
+        thread = threading.Thread(target=self._run_subroutine)
         thread.start()
         self.brain.run_until_terminate()
+        self.sigterm_flag = True
         thread.join()
 
-    def _run_body(self):
+    def _run_subroutine(self):
         while True:
             try:
                 self.execute_next()
-            except ProcessTerminated:
+            except ResourceUnavailable:
                 break
 
     def execute_next(self):
-        self.camera.put(self.observe_panel())
-        self.paint_panel(self.motor.get())
-        self.turn_and_move(self.motor.get())
+        self.camera.put(self.observe_panel(), self.sigterm_received)
+        self.paint_panel(self.motor.get(self.sigterm_received))
+        self.turn_and_move(self.motor.get(self.sigterm_received))
 
     def observe_panel(self) -> int:
         return self.canvas.get(self.robot_pos, 0)

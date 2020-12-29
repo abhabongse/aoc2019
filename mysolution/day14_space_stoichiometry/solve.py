@@ -5,7 +5,7 @@ import math
 import os
 import re
 from collections.abc import Callable, Sequence
-from graphlib import TopologicalSorter
+from graphlib import TopologicalSorter  # noqa: I
 from typing import NamedTuple, TypeVar  # noqa: I
 
 T = TypeVar('T')

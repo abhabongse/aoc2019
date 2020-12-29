@@ -4,7 +4,7 @@ import os
 
 import more_itertools
 
-from mysolution.machine import Machine, PrinterPort, QueuedPort, load_instructions
+from mysolution.machine import Machine, QueuePort, ScreenPort, load_instructions
 
 
 def main():
@@ -13,17 +13,15 @@ def main():
     instructions = load_instructions(input_file)
 
     # Part 1
-    printer = PrinterPort()
-    machine = Machine(instructions, QueuedPort([1]), printer)
+    machine = Machine(instructions, QueuePort(initial_values=[1]), ScreenPort(silent=True))
     machine.run_until_terminate()
-    p1_answer = more_itertools.one(printer.tape)
+    p1_answer = more_itertools.one(machine.output_tape)
     print(p1_answer)
 
     # Part 2
-    printer = PrinterPort()
-    machine = Machine(instructions, QueuedPort([2]), printer)
+    machine = Machine(instructions, QueuePort(initial_values=[2]), ScreenPort(silent=True))
     machine.run_until_terminate()
-    p2_answer = more_itertools.one(printer.tape)
+    p2_answer = more_itertools.one(machine.output_tape)
     print(p2_answer)
 
 

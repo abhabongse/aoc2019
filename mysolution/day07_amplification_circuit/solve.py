@@ -9,7 +9,7 @@ from typing import NamedTuple
 
 import more_itertools
 
-from mysolution.machine import Machine, QueuedPort, load_instructions
+from mysolution.machine import Machine, QueuePort, load_instructions
 
 
 def main():
@@ -45,9 +45,9 @@ def test_sequential_wiring(instructions: Sequence[int], phases: Sequence[int]) -
     and watches for the final output signal.
     """
     # Prepare ports
-    ports = [QueuedPort(initial_values=[p]) for p in phases]
+    ports = [QueuePort(initial_values=[p], polling_interval=0.01) for p in phases]
     ports[0].put(0)
-    drain = QueuedPort()
+    drain = QueuePort()
 
     # Initializes machines and threads
     environments = []
@@ -60,7 +60,7 @@ def test_sequential_wiring(instructions: Sequence[int], phases: Sequence[int]) -
     # Run until the last drain queue receives an output
     value = drain.get()
     for environ in environments:
-        environ.machine.send_sigterm()
+        environ.machine.sigterm_flag = True
         environ.thread.join()
 
     return value
@@ -74,7 +74,7 @@ def test_sequential_looped_wiring(instructions: Sequence[int], phases: Sequence[
     and watches for the final output signal.
     """
     # Prepare ports
-    ports = [QueuedPort(initial_values=[p]) for p in phases]
+    ports = [QueuePort(initial_values=[p], polling_interval=0.01) for p in phases]
     ports[0].put(0)
 
     # Initializes I/O interfaces, programs, and threads
@@ -89,10 +89,10 @@ def test_sequential_looped_wiring(instructions: Sequence[int], phases: Sequence[
     # Run until the last amplifier terminates
     environments[-1].thread.join()
     for environ in environments:
-        environ.machine.send_sigterm()
+        environ.machine.sigterm_flag = True
         environ.thread.join()
 
-    return ports[0].tape[-1]
+    return environments[-1].machine.output_tape[-1]
 
 
 if __name__ == '__main__':

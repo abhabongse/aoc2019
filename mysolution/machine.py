@@ -2,43 +2,52 @@ from __future__ import annotations
 
 import collections
 import inspect
+import itertools
 import sys
-import threading
+from collections.abc import Callable
 from dataclasses import InitVar, dataclass, field
-from typing import Generic, Iterator, NamedTuple, Optional, Protocol, Sequence, TextIO, runtime_checkable
+from queue import Empty, SimpleQueue
+from typing import Iterator, NamedTuple, Optional, Protocol, Sequence, TextIO, runtime_checkable
 
 
 @dataclass
 class Machine:
     """
-    Implements an intcode machine which runs a program
-    (i.e. a given list of instructions).
+    Implements an intcode machine which runs a given instructions.
     """
-    memory: collections.defaultdict[int] = field(init=False)
+    #: Sequence of intcode instructions
     instructions: InitVar[Sequence[int]]
+    #: Input port from which the machine receives an input integer
     input_port: InputPort = None
+    #: Output port to which the machine sends an output integer
     output_port: OutputPort = None
+    #: Flag determining whether the machine has received sigterm
+    sigterm_flag: bool = field(default=False, init=False)
+
+    #: Memory state of the machine
+    memory: collections.defaultdict[int] = field(init=False)
+    #: Program counter
     pc: int = field(default=0, init=False)
+    #: Relative base value in conjunction with relative address mode
     relative_base: int = field(default=0, init=False)
-    sigterm_received: bool = field(default=False, init=False)
+
+    #: Records all input received from the input port
+    input_tape: list[int] = field(default_factory=list, init=False)
+    #: Records all outputs sent to the output port
+    output_tape: list[int] = field(default_factory=list, init=False)
 
     def __post_init__(self, instructions: Sequence[int]):
         self.memory = collections.defaultdict(int, enumerate(instructions))  # noqa
 
-    def send_sigterm(self):
-        self.sigterm_received = True
-        if self.input_port:
-            self.input_port.notify_sigterm()
-        if self.output_port:
-            self.output_port.notify_sigterm()
+    def sigterm_received(self) -> bool:
+        return self.sigterm_flag
 
     def run_until_terminate(self):
-        while not self.sigterm_received:
+        while not self.sigterm_flag:
             try:
                 self.execute_next()
-            except ProcessTerminated:
+            except (MachineTerminated, ResourceUnavailable):
                 break
-        self.send_sigterm()
 
     def execute_next(self):
         instr = self.memory[self.pc]
@@ -57,26 +66,6 @@ class Machine:
             for pos, mode in zip(range(nargs), self._extract_modes(instr))
         ]
         method(*args)
-
-    def load_value(self, param: Parameter):
-        if param.mode == 0:  # absolute address mode
-            return self.memory[param.number]
-        elif param.mode == 1:  # immediate mode
-            return param.number
-        elif param.mode == 2:  # relative address mode
-            return self.memory[param.number + self.relative_base]
-        else:
-            raise RuntimeError(f"unknown mode: {param.mode!r}")
-
-    def store_value(self, param: Parameter, value: int):
-        if param.mode == 0:  # absolute address mode
-            self.memory[param.number] = value
-        elif param.mode == 1:  # immediate mode
-            raise RuntimeError(f"invalid mode: {param.mode!r}")
-        elif param.mode == 2:  # relative address mode
-            self.memory[param.number + self.relative_base] = value
-        else:
-            raise RuntimeError(f"unknown mode: {param.mode!r}")
 
     def execute_01(self, fst: Parameter, snd: Parameter, dest: Parameter, /):
         """
@@ -104,8 +93,9 @@ class Machine:
         """
         if not self.input_port:
             raise RuntimeError("input port is not plugged")
-        value = self.input_port.get()
+        value = self.input_port.get(self.sigterm_received)
         self.store_value(dest, value)
+        self.input_tape.append(value)
         self.pc += 2
 
     def execute_04(self, src: Parameter, /):
@@ -115,7 +105,8 @@ class Machine:
         if not self.output_port:
             raise RuntimeError("output port is not plugged")
         value = self.load_value(src)
-        self.output_port.put(value)
+        self.output_port.put(value, self.sigterm_received)
+        self.output_tape.append(value)
         self.pc += 2
 
     def execute_05(self, cond: Parameter, pos: Parameter, /):
@@ -165,7 +156,30 @@ class Machine:
         self.pc += 2
 
     def execute_99(self, /):
-        raise ProcessTerminated
+        """
+        TERMINATES the machine.
+        """
+        raise MachineTerminated
+
+    def load_value(self, param: Parameter):
+        if param.mode == 0:  # absolute address mode
+            return self.memory[param.number]
+        elif param.mode == 1:  # immediate mode
+            return param.number
+        elif param.mode == 2:  # relative address mode
+            return self.memory[param.number + self.relative_base]
+        else:
+            raise RuntimeError(f"unknown mode: {param.mode!r}")
+
+    def store_value(self, param: Parameter, value: int):
+        if param.mode == 0:  # absolute address mode
+            self.memory[param.number] = value
+        elif param.mode == 1:  # immediate mode
+            raise RuntimeError(f"invalid mode: {param.mode!r}")
+        elif param.mode == 2:  # relative address mode
+            self.memory[param.number + self.relative_base] = value
+        else:
+            raise RuntimeError(f"unknown mode: {param.mode!r}")
 
     @classmethod
     def _extract_modes(cls, instr: int) -> Iterator[int]:
@@ -181,108 +195,85 @@ class InputPort(Protocol):
     Defines input port which connects an intcode machine with external input source.
     """
 
-    def get(self) -> int:
+    def get(self, sentinel: Callable[[], bool] = None) -> int:
         """
-        An intcode machine calls this method to read an input.
+        An intcode machine calls this method to read an input integer.
+        Once `sentinel` predicate evaluates to `True` (if provided at all),
+        then this method may raise `ResourceUnavailable` if no input can be read.
         """
-        ...
-
-    def notify_sigterm(self):
-        """
-        An intcode machine calls this method to let the port know of the sigterm.
-        """
-        ...
+        raise NotImplementedError
 
 
 @runtime_checkable
 class OutputPort(Protocol):
     """
-    Defines input port which connects an intcode machine with external input source.
+    Defines output port which connects an intcode machine with external output source.
     """
 
-    def put(self, value: int):
+    def put(self, value: int, sentinel: Callable[[], bool] = None):
         """
-        An intcode machine calls this method to write an output.
+        An intcode machine calls this method to write an output integer.
+        Once `sentinel` predicate evaluates to `True` (if provided at all),
+        then this method may raise `ResourceUnavailable` if output cannot be written.
         """
-        ...
-
-    def notify_sigterm(self):
-        """
-        An intcode machine calls this method to let the port know of the sigterm.
-        """
-        ...
+        raise NotImplementedError
 
 
 @dataclass
-class PrompterPort:
+class KeyboardPort:
     """
-    Basic input port connecting to the prompted standard input.
+    Basic input port connecting the intcode machine to the prompted standard input.
     """
     prompt: str = "Enter an input integer: "
-    tape: list[int] = field(default_factory=list, init=False)
 
-    def get(self) -> int:
-        value = int(input(self.prompt))
-        self.tape.append(value)
-        return value
-
-    def notify_sigterm(self):
-        pass
+    def get(self, _sentinel_predicate: Callable[[], bool] = None) -> int:
+        return int(input(self.prompt))
 
 
 @dataclass
-class PrinterPort:
+class ScreenPort:
     """
-    Basic output port connecting to the standard output (or other file object).
+    Basic output port connecting the intcode machine to the standard output (or other stream).
     """
-    print_prefix: str = None
+    prefix: str = "Integer output: "
     file: Optional[TextIO] = sys.stdout
-    tape: list[int] = field(default_factory=list, init=False)
+    silent: bool = False
 
-    def put(self, value: int):
-        self.tape.append(value)
-        if self.print_prefix is not None:
-            print(f"{self.print_prefix}{value!r}")
-
-    def notify_sigterm(self):
-        pass
+    def put(self, value: int, _sentinel_predicate: Callable[[], bool] = None):
+        if not self.silent:
+            print(f"{self.prefix}{value!r}", file=self.file)
 
 
 @dataclass
-class QueuedPort:
+class QueuePort:
     """
-    I/O port connecting an intcode machine with thread-safe queue.
+    I/O port wrapping over `queue.SimpleQueue` for thread-safe communication.
     """
     initial_values: InitVar[Sequence[int]] = None
-    queue: collections.deque[int] = field(default_factory=collections.deque)
-    tape: list[int] = field(init=False)
-    sigterm_received: bool = field(init=False)
-    mutex: threading.Lock = field(init=False)
-    not_empty: threading.Condition = field(init=False)
+    queue: SimpleQueue[int] = field(init=False)
+    retries: int = None
+    polling_interval: float = 1.0
 
     def __post_init__(self, initial_values: Sequence[int] = None):
-        self.queue.extend(initial_values or [])
-        self.tape = list(self.queue)
-        self.mutex = threading.Lock()
-        self.not_empty = threading.Condition(self.mutex)
-        self.sigterm_received = False
+        initial_values = initial_values or []
+        self.queue = SimpleQueue()
+        for value in initial_values:
+            self.put(value)
 
-    def get(self) -> int:
-        with self.not_empty:
-            while not self.queue and not self.sigterm_received:
-                self.not_empty.wait()
-            if self.sigterm_received:
-                raise ProcessTerminated
-            return self.queue.popleft()
+    def get(self, sentinel: Callable[[], bool] = None) -> int:
+        if self.polling_interval <= 0:
+            raise ValueError("polling interval must be strictly positive")
+        loop = range(self.retries) if self.retries else itertools.count()
+        for _ in loop:
+            try:
+                return self.queue.get(timeout=self.polling_interval)
+            except Empty as exc:
+                if sentinel and sentinel():
+                    raise ResourceUnavailable from exc
+        raise ResourceUnavailable
 
-    def put(self, value: int):
-        with self.mutex:
-            self.tape.append(value)
-            self.queue.append(value)
-            self.not_empty.notify()
-
-    def notify_sigterm(self):
-        self.sigterm_received = True
+    def put(self, value: int, _sentinel: Callable[[], bool] = None):
+        self.queue.put(value)
 
 
 class Parameter(NamedTuple):
@@ -290,7 +281,11 @@ class Parameter(NamedTuple):
     mode: int
 
 
-class ProcessTerminated(Exception):
+class MachineTerminated(Exception):
+    pass
+
+
+class ResourceUnavailable(Exception):
     pass
 
 
