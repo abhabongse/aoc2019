@@ -53,21 +53,30 @@ class StateScalar(NamedTuple):
             return 0
 
 
-def simulate(initial_states: Sequence[StateVector], repeat: int) -> list[StateVector]:
+def simulate(initial_vectors: Sequence[StateVector], repeat: int) -> list[StateVector]:
+    """
+    Simulates position and velocity of celestial bodies repeatedly
+    based on the given initial state.
+    Data for each axis is simulated independently.
+    """
     transposed_samples = []
-    for sampled_scalars in zip(*initial_states):
+    for sampled_scalars in zip(*initial_vectors):
         updated_sampled_scalars = functools.reduce(
             lambda ss, _: simulate_next_linear(ss),
             range(repeat), sampled_scalars,
         )
         transposed_samples.append(updated_sampled_scalars)
-    updated_states = list(zip(*transposed_samples))
-    return updated_states
+    updated_vectors = list(zip(*transposed_samples))
+    return updated_vectors
 
 
-def find_simulation_period(initial_states: Sequence[StateVector]) -> int:
+def find_simulation_period(initial_vectors: Sequence[StateVector]) -> int:
+    """
+    Computes the length of period (i.e. cycle)
+    when the simulation repeats itself  on every axis.
+    """
     multidimensional_periods = []
-    for sampled_scalars in zip(*initial_states):
+    for sampled_scalars in zip(*initial_vectors):
         period, offset = simulate_linear_until_repeat(sampled_scalars)
         assert offset == 0
         multidimensional_periods.append(period)
@@ -75,6 +84,10 @@ def find_simulation_period(initial_states: Sequence[StateVector]) -> int:
 
 
 def simulate_linear_until_repeat(sampled_scalars: Sequence[StateScalar]) -> tuple[Period, Offset]:
+    """
+    Computes the offset and length of the period
+    when the simulation repeats itself on a single axis.
+    """
     sampled_scalars = tuple(sampled_scalars)
     recorded_offsets = {sampled_scalars: 0}
     for time in itertools.count(start=1):
@@ -87,6 +100,9 @@ def simulate_linear_until_repeat(sampled_scalars: Sequence[StateScalar]) -> tupl
 
 
 def simulate_next_linear(sampled_scalars: Sequence[StateScalar]) -> Sequence[StateScalar]:
+    """
+    Simulates the next state of celestial bodies for a single time-step on a single axis.
+    """
     updated_sampled_scalars = [
         primary.next_state(others)
         for primary, others in one_and_rest(sampled_scalars)
@@ -95,6 +111,9 @@ def simulate_next_linear(sampled_scalars: Sequence[StateScalar]) -> Sequence[Sta
 
 
 def energy(vector: StateVector) -> int:
+    """
+    Computes the energy of one celestial body.
+    """
     pot_energy = sum(abs(scalar.pos) for scalar in vector)
     kin_energy = sum(abs(scalar.vel) for scalar in vector)
     return pot_energy * kin_energy
@@ -115,11 +134,14 @@ def read_input_file(filename: str) -> list[StateVector]:
     Extracts a list of initial states of Jupiter's moons.
     """
     with open(filename) as fobj:
-        initial_states = [parse_initial_state(line.strip()) for line in fobj]
-    return initial_states
+        initial_vectors = [parse_initial_vector(line.strip()) for line in fobj]
+    return initial_vectors
 
 
-def parse_initial_state(raw: str) -> StateVector:
+def parse_initial_vector(raw: str) -> StateVector:
+    """
+    Parses the initial state of one celestial body.
+    """
     return [StateScalar(pos=int(token)) for token in COORDS_RE.fullmatch(raw).groups()]
 
 

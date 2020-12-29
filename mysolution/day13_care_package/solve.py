@@ -12,6 +12,14 @@ import more_itertools
 from mysolution.machine import Machine, load_instructions
 
 
+class Tile(enum.IntEnum):
+    EMPTY = 0
+    WALL = 1
+    BLOCK = 2
+    PADDLE = 3
+    BALL = 4
+
+
 def main():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(this_dir, 'input.txt')
@@ -32,14 +40,6 @@ def main():
     machine.run_until_terminate()
     p2_answer = controller.display.score
     print(p2_answer)
-
-
-class Tile(enum.IntEnum):
-    EMPTY = 0
-    WALL = 1
-    BLOCK = 2
-    PADDLE = 3
-    BALL = 4
 
 
 @dataclass
@@ -98,7 +98,7 @@ class ArcadeController:
 @dataclass
 class AutoArcadeController(ArcadeController):
     """
-    Specialized controller for the arcade machine with auto-play feature.
+    Specialized controller for the arcade machine with an autoplay feature.
     """
     display_with_delay: float = None
 

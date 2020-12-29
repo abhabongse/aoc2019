@@ -24,8 +24,8 @@ def main():
 
 def node_depths(parents_map: dict[str, str]) -> dict[str, int]:
     """
-    Computes tree depth for each node in the tree
-    described by the give root and a mapping of each node to its parent.
+    Computes the depth for each node in the tree
+    described by a given mapping of each node to its parent.
     """
     sorter = TopologicalSorter({node: [parent] for node, parent in parents_map.items()})
     depths = {}
@@ -36,7 +36,8 @@ def node_depths(parents_map: dict[str, str]) -> dict[str, int]:
 
 def node_ancestors(node: str, parents_map: dict[str, str]) -> Iterator[str]:
     """
-    Produces a sequence of ancestors from direct parent to root.
+    Produces a sequence of ancestors of a given node
+    starting from its direct parent to the root.
     """
     while node in parents_map:
         node = parents_map[node]

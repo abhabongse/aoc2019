@@ -28,11 +28,20 @@ def main():
 
 
 def count_visible_asteroids(asteroids: Sequence[Vec], base: Vec) -> int:
+    """
+    Counts the number of asteroids from the given base position.
+    """
     reduced_rays = {(a - base).reduce() for a in asteroids if a != base}
     return len(reduced_rays)
 
 
 def generate_destroyed_asteroids(asteroids: Sequence[Vec], base: Vec) -> Iterator[Vec]:
+    """
+    Produces a sequence of asteroid positions
+    in the order of itself being destroyed by laser gun.
+
+    Note: do not forget about flipped images.
+    """
     rays = (a - base for a in asteroids if a != base)
     grouped_rays = collections.defaultdict(list)
     for r in rays:

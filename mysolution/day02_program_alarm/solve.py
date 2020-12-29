@@ -28,6 +28,10 @@ def main():
 
 
 def setup_machine(instructions: Sequence[int], noun: int, verb: int) -> Machine:
+    """
+    Setup intcode machine with the given instructions,
+    replacing the noun and verb parameters with the given values.
+    """
     machine = Machine(instructions)
     machine.memory[1] = noun
     machine.memory[2] = verb

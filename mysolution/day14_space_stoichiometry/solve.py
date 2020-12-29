@@ -29,6 +29,9 @@ def main():
 
 
 class Chemical(NamedTuple):
+    """
+    Represents a chemical name and its amount in a chemical equation.
+    """
     name: str
     amount: int
 
@@ -38,19 +41,28 @@ class Chemical(NamedTuple):
         return Chemical(data['name'], int(data['amount']))
 
 
-class Formula(NamedTuple):
+class Equation(NamedTuple):
+    """
+    Represents a chemical equation consisting of
+    required reactants and the final product.
+    """
     reactants: list[Chemical]
     product: Chemical
 
     @classmethod
-    def from_raw(cls, raw: str) -> Formula:
+    def from_raw(cls, raw: str) -> Equation:
         reactants, product = raw.split('=>')
         product = Chemical.from_raw(product)
         reactants = [Chemical.from_raw(r) for r in reactants.split(',')]
-        return Formula(reactants, product)
+        return Equation(reactants, product)
 
 
-def fuels_from_ores(formulae: Sequence[Formula], ore_amount: int) -> int:
+def fuels_from_ores(formulae: Sequence[Equation], ore_amount: int) -> int:
+    """
+    Computes the amount of FUEL which can be produced
+    from the given amount of ORE.
+    """
+
     def enough_ores(fuel_amount: int) -> bool:
         required_amounts = required_amounts_per_target(formulae, target=Chemical('FUEL', fuel_amount))
         return required_amounts['ORE'] <= ore_amount
@@ -59,7 +71,11 @@ def fuels_from_ores(formulae: Sequence[Formula], ore_amount: int) -> int:
     return range(ore_amount)[index]
 
 
-def required_amounts_per_target(formulae: Sequence[Formula], target: Chemical) -> dict[str, int]:
+def required_amounts_per_target(formulae: Sequence[Equation], target: Chemical) -> dict[str, int]:
+    """
+    Computes the lower bound on the amount of each particular chemical
+    required to produce the given chemical target.
+    """
     dependencies = collections.defaultdict(list)
     for reactants, product in formulae:
         for r in reactants:
@@ -81,8 +97,10 @@ def required_amounts_per_target(formulae: Sequence[Formula], target: Chemical) -
     return accm_required_amounts
 
 
-def binary_search_max_satisfied(values: Sequence[T], pred: Callable[[T], bool], lo: int = 0,
-                                hi: int = None) -> T:
+def binary_search_max_satisfied(
+        values: Sequence[T], pred: Callable[[T], bool],
+        lo: int = 0, hi: int = None,
+) -> T:
     """
     Locates the index within the given sequence of values using binary search
     such that the following assertions are both true (assuming such index exists):
@@ -99,12 +117,12 @@ def binary_search_max_satisfied(values: Sequence[T], pred: Callable[[T], bool], 
     return hi
 
 
-def read_input_file(filename: str) -> list[Formula]:
+def read_input_file(filename: str) -> list[Equation]:
     """
     Extracts a list of chemical formulae.
     """
     with open(filename) as fobj:
-        formulae = [Formula.from_raw(line) for line in fobj]
+        formulae = [Equation.from_raw(line) for line in fobj]
     return formulae
 
 

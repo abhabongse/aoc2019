@@ -33,6 +33,10 @@ def main():
 
 
 class Environ(NamedTuple):
+    """
+    Represents a pair of intcode machine
+    and a thread object in which the machine executes.
+    """
     machine: Machine
     thread: Thread
 

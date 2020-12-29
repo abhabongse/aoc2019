@@ -95,7 +95,7 @@ class Machine:
         """
         if not self.input_port:
             raise RuntimeError("input port is not plugged")
-        value = self.input_port.get(self.sigterm_received)
+        value = self.input_port.get(sentinel=self.sigterm_received)
         self.store_value(dest, value)
         self.input_tape.append(value)
         self.pc += 2
@@ -107,7 +107,7 @@ class Machine:
         if not self.output_port:
             raise RuntimeError("output port is not plugged")
         value = self.load_value(src)
-        self.output_port.put(value, self.sigterm_received)
+        self.output_port.put(value, sentinel=self.sigterm_received)
         self.output_tape.append(value)
         self.pc += 2
 
@@ -228,7 +228,7 @@ class KeyboardPort:
     """
     prompt: str = "Enter an input integer: "
 
-    def get(self, _sentinel: Predicate = None) -> int:
+    def get(self, sentinel: Predicate = None) -> int:
         return int(input(self.prompt))
 
 
@@ -241,7 +241,7 @@ class ScreenPort:
     file: Optional[TextIO] = sys.stdout
     silent: bool = False
 
-    def put(self, value: int, _sentinel: Predicate = None):
+    def put(self, value: int, sentinel: Predicate = None):
         if not self.silent:
             print(f"{self.prefix}{value!r}", file=self.file)
 
@@ -274,7 +274,7 @@ class QueuePort:
                     raise ResourceUnavailable from exc
         raise ResourceUnavailable
 
-    def put(self, value: int, _sentinel: Predicate = None):
+    def put(self, value: int, sentinel: Predicate = None):
         self.queue.put(value)
 
 

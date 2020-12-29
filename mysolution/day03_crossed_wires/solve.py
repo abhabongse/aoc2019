@@ -5,7 +5,7 @@ from collections.abc import Iterator, Sequence
 
 from mysolution.geometry import Vec
 
-Move = tuple['Vec', int]
+Move = tuple[Vec, int]
 
 DIRECTIONAL_STEPS = {
     'U': Vec(0, 1),
@@ -39,6 +39,10 @@ def main():
 
 
 def walked_positions(moves: Sequence[Move]) -> Iterator[Vec]:
+    """
+    Produces a sequence of walked positions starting from a sequence of moves
+    starting (but not including) the point of origin (0, 0).
+    """
     current = Vec(0, 0)
     for direction, steps in moves:
         for _ in range(steps):
@@ -47,6 +51,10 @@ def walked_positions(moves: Sequence[Move]) -> Iterator[Vec]:
 
 
 def counts_to_walked_positions(moves: Sequence[Move]) -> dict[Vec, int]:
+    """
+    Computes the first step count towards each walked positions
+    from a sequence of moves from the origin.
+    """
     step_counts = {}
     for count, position in enumerate(walked_positions(moves), start=1):
         step_counts.setdefault(position, count)
@@ -64,6 +72,9 @@ def read_input_file(filename: str) -> tuple[list[Move], list[Move]]:
 
 
 def parse_wire_moves(raw: str) -> list[Move]:
+    """
+    Parses a sequence of moves for a single wire.
+    """
     return [
         (DIRECTIONAL_STEPS[token[0]], int(token[1:]))
         for token in raw.split(',')
