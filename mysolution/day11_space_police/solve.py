@@ -60,20 +60,20 @@ class PainterRobot:
         Runs the painter robot itself in a separate thread
         then terminate it once the core chip terminates.
         """
-        thread = threading.Thread(target=self._run_subroutine)
+        thread = threading.Thread(target=self.observe_paint_move_loop)
         thread.start()
         self.core_chip.run_until_terminate()
         self.sigterm_flag = True
         thread.join()
 
-    def _run_subroutine(self):
+    def observe_paint_move_loop(self):
         while True:
             try:
-                self.execute_next()
+                self.execute_next_cycle()
             except ResourceUnavailable:
                 break
 
-    def execute_next(self):
+    def execute_next_cycle(self):
         """
         Performs the following sequence of steps:
         - Send the color of the current panel to the chip via camera port
