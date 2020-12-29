@@ -44,6 +44,9 @@ class Tile(enum.IntEnum):
 
 @dataclass
 class ArcadeDisplay:
+    """
+    Maintains the painting display of the arcade machine.
+    """
     board: dict[tuple[int, int], int] = field(default_factory=dict, init=False)
     paddle: int = field(default=None, init=False)
     ball: int = field(default=None, init=False)
@@ -72,6 +75,10 @@ class ArcadeDisplay:
 
 @dataclass
 class ArcadeController:
+    """
+    Main controller for the arcade machine
+    which itself also acts as I/O ports for the intcode machine.
+    """
     draw_buffer: list[int] = field(default_factory=list, init=False)
     display: ArcadeDisplay = field(default_factory=ArcadeDisplay, init=False)
     move_map: ClassVar[dict[str, int]] = {'Q': -1, 'P': 1}
@@ -90,6 +97,9 @@ class ArcadeController:
 
 @dataclass
 class AutoArcadeController(ArcadeController):
+    """
+    Specialized controller for the arcade machine with auto-play feature.
+    """
     display_with_delay: float = None
 
     def get(self, _sentinel: Callable[[], bool] = None) -> int:

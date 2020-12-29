@@ -4,78 +4,55 @@ import os
 import threading
 from collections.abc import Sequence
 from dataclasses import InitVar, dataclass, field
-from typing import NamedTuple
 
+from mysolution.geometry import Vec
 from mysolution.machine import Machine, QueuePort, ResourceUnavailable, load_instructions
 
 
 def main():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(this_dir, 'input.txt')
-    brain_instructions = load_instructions(input_file)
+    chip_instructions = load_instructions(input_file)
 
     # Part 1
-    painter = Painter(brain_instructions, starting_panel=0)
+    painter = PainterRobot(chip_instructions, starting_panel=0)
     painter.run_until_terminate()
     p1_answer = len(painter.canvas)
     print(p1_answer)
 
     # Part 2
-    painter = Painter(brain_instructions, starting_panel=1)
+    painter = PainterRobot(chip_instructions, starting_panel=1)
     painter.run_until_terminate()
     painter.print_canvas()
 
 
-class Vec(NamedTuple):
-    x: int
-    y: int
-
-    def __pos__(self) -> Vec:
-        return self
-
-    def __neg__(self) -> Vec:
-        return Vec(-self.x, -self.y)
-
-    def __add__(self, other: Vec) -> Vec:
-        return Vec(self.x + other.x, self.y + other.y)
-
-    def __sub__(self, other: Vec) -> Vec:
-        return self + (-other)
-
-    def rotate_left(self) -> Vec:
-        return Vec(x=-self.y, y=self.x)
-
-    def rotate_right(self) -> Vec:
-        return Vec(x=self.y, y=-self.x)
-
-
 @dataclass
-class Painter:
-    brain_instrs: InitVar[Sequence[int]]
+class PainterRobot:
+    chip_instructions: InitVar[Sequence[int]]
     starting_panel: InitVar[int]
 
-    camera: QueuePort = field(init=False)
-    motor: QueuePort = field(init=False)
-    brain: Machine = field(init=False)
+    core_chip: Machine = field(init=False)
+    camera: QueuePort = field(default_factory=QueuePort, init=False)
+    motor: QueuePort = field(default_factory=QueuePort, init=False)
     sigterm_flag: bool = field(default=False, init=False)
 
     robot_pos: Vec = Vec(0, 0)
     robot_heading: Vec = Vec(0, 1)
     canvas: dict[Vec, int] = field(init=False)
 
-    def __post_init__(self, brain_instrs: Sequence[int], starting_panel: int):
-        self.camera = QueuePort()
-        self.motor = QueuePort()
-        self.brain = Machine(brain_instrs, self.camera, self.motor)
+    def __post_init__(self, chip_instructions: Sequence[int], starting_panel: int):
+        self.core_chip = Machine(chip_instructions, self.camera, self.motor)
         self.canvas = {self.robot_pos: starting_panel}
 
     def sigterm_received(self) -> bool:
         return self.sigterm_flag
 
     def run_until_terminate(self):
+        # Run the painter robot itself in a separate thread
+        # then terminate it once the main chip terminates
         thread = threading.Thread(target=self._run_subroutine)
         thread.start()
-        self.brain.run_until_terminate()
+        self.core_chip.run_until_terminate()
         self.sigterm_flag = True
         thread.join()
 
@@ -87,23 +64,28 @@ class Painter:
                 break
 
     def execute_next(self):
-        self.camera.put(self.observe_panel(), self.sigterm_received)
-        self.paint_panel(self.motor.get(self.sigterm_received))
-        self.turn_and_move(self.motor.get(self.sigterm_received))
+        curr_color = self.observe_panel()
+        self.camera.put(curr_color, self.sigterm_received)
+
+        next_color = self.motor.get(self.sigterm_received)
+        self.paint_panel(next_color)
+
+        turn_direction = self.motor.get(self.sigterm_received)
+        self.turn_and_move(turn_direction)
 
     def observe_panel(self) -> int:
         return self.canvas.get(self.robot_pos, 0)
 
-    def paint_panel(self, value: int):
-        self.canvas[self.robot_pos] = value
+    def paint_panel(self, color: int):
+        self.canvas[self.robot_pos] = color
 
-    def turn_and_move(self, turn: int):
-        if turn == 0:
-            self.robot_heading = self.robot_heading.rotate_left()
-        elif turn == 1:
-            self.robot_heading = self.robot_heading.rotate_right()
+    def turn_and_move(self, turn_direction: int):
+        if turn_direction == 0:
+            self.robot_heading = self.robot_heading.turn('left')
+        elif turn_direction == 1:
+            self.robot_heading = self.robot_heading.turn('right')
         else:
-            raise ValueError(f"unknown turning instruction: {turn!r}")
+            raise ValueError(f"unknown turning instruction: {turn_direction!r}")
         self.robot_pos += self.robot_heading
 
     def print_canvas(self):

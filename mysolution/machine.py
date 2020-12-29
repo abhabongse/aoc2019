@@ -9,6 +9,8 @@ from dataclasses import InitVar, dataclass, field
 from queue import Empty, SimpleQueue
 from typing import Iterator, NamedTuple, Optional, Protocol, Sequence, TextIO, runtime_checkable
 
+Predicate = Callable[[], bool]
+
 
 @dataclass
 class Machine:
@@ -195,7 +197,7 @@ class InputPort(Protocol):
     Defines input port which connects an intcode machine with external input source.
     """
 
-    def get(self, sentinel: Callable[[], bool] = None) -> int:
+    def get(self, sentinel: Predicate = None) -> int:
         """
         An intcode machine calls this method to read an input integer.
         Once `sentinel` predicate evaluates to `True` (if provided at all),
@@ -210,7 +212,7 @@ class OutputPort(Protocol):
     Defines output port which connects an intcode machine with external output source.
     """
 
-    def put(self, value: int, sentinel: Callable[[], bool] = None):
+    def put(self, value: int, sentinel: Predicate = None):
         """
         An intcode machine calls this method to write an output integer.
         Once `sentinel` predicate evaluates to `True` (if provided at all),
@@ -226,7 +228,7 @@ class KeyboardPort:
     """
     prompt: str = "Enter an input integer: "
 
-    def get(self, _sentinel_predicate: Callable[[], bool] = None) -> int:
+    def get(self, _sentinel: Predicate = None) -> int:
         return int(input(self.prompt))
 
 
@@ -239,7 +241,7 @@ class ScreenPort:
     file: Optional[TextIO] = sys.stdout
     silent: bool = False
 
-    def put(self, value: int, _sentinel_predicate: Callable[[], bool] = None):
+    def put(self, value: int, _sentinel: Predicate = None):
         if not self.silent:
             print(f"{self.prefix}{value!r}", file=self.file)
 
@@ -260,7 +262,7 @@ class QueuePort:
         for value in initial_values:
             self.put(value)
 
-    def get(self, sentinel: Callable[[], bool] = None) -> int:
+    def get(self, sentinel: Predicate = None) -> int:
         if self.polling_interval <= 0:
             raise ValueError("polling interval must be strictly positive")
         loop = range(self.retries) if self.retries else itertools.count()
@@ -272,7 +274,7 @@ class QueuePort:
                     raise ResourceUnavailable from exc
         raise ResourceUnavailable
 
-    def put(self, value: int, _sentinel: Callable[[], bool] = None):
+    def put(self, value: int, _sentinel: Predicate = None):
         self.queue.put(value)
 
 

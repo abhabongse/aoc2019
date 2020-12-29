@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator, Sequence
-from typing import NamedTuple
+
+from mysolution.geometry import Vec
 
 Move = tuple['Vec', int]
+
+DIRECTIONAL_STEPS = {
+    'U': Vec(0, 1),
+    'D': Vec(0, -1),
+    'R': Vec(1, 0),
+    'L': Vec(-1, 0),
+}
 
 
 def main():
@@ -28,25 +36,6 @@ def main():
         for pos in crossed_positions
     )
     print(p2_answer)
-
-
-class Vec(NamedTuple):
-    x: int
-    y: int
-
-    def __add__(self, other: Vec) -> Vec:
-        return Vec(self.x + other.x, self.y + other.y)
-
-    def norm1(self) -> int:
-        return abs(self.x) + abs(self.y)
-
-
-DIRECTIONAL_STEPS = {
-    'U': Vec(0, 1),
-    'D': Vec(0, -1),
-    'R': Vec(1, 0),
-    'L': Vec(-1, 0),
-}
 
 
 def walked_positions(moves: Sequence[Move]) -> Iterator[Vec]:

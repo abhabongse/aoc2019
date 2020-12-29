@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import collections
-import math
 import os
 from collections.abc import Iterator, Sequence
-from typing import NamedTuple
 
 import more_itertools
+
+from mysolution.geometry import Vec
 
 
 def main():
@@ -27,33 +27,6 @@ def main():
     print(p2_answer)
 
 
-class Vec(NamedTuple):
-    x: int
-    y: int
-
-    def __pos__(self) -> Vec:
-        return self
-
-    def __neg__(self) -> Vec:
-        return Vec(-self.x, -self.y)
-
-    def __add__(self, other: Vec) -> Vec:
-        return Vec(self.x + other.x, self.y + other.y)
-
-    def __sub__(self, other: Vec) -> Vec:
-        return self + (-other)
-
-    def norm2(self) -> int:
-        return self.x ** 2 + self.y ** 2
-
-    def reduce(self) -> Vec:
-        d = math.gcd(self.x, self.y)
-        return Vec(self.x // d, self.y // d)
-
-    def wangle(self) -> float:
-        return math.pi - math.atan2(self.x, self.y)
-
-
 def count_visible_asteroids(asteroids: Sequence[Vec], base: Vec) -> int:
     reduced_rays = {(a - base).reduce() for a in asteroids if a != base}
     return len(reduced_rays)
@@ -66,7 +39,7 @@ def generate_destroyed_asteroids(asteroids: Sequence[Vec], base: Vec) -> Iterato
         grouped_rays[r.reduce()].append(r)
     grouped_rays = [
         sorted(grouped_rays[reduced_ray], key=lambda r_: r_.norm2())
-        for reduced_ray in sorted(grouped_rays.keys(), key=lambda rr: rr.wangle())
+        for reduced_ray in sorted(grouped_rays.keys(), key=lambda rr: rr.azimuth(), reverse=True)
     ]
     for ray in more_itertools.roundrobin(*grouped_rays):
         yield ray + base
