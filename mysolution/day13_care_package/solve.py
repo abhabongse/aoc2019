@@ -3,13 +3,13 @@ from __future__ import annotations
 import enum
 import os
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import ClassVar
 
 import more_itertools
 
-from mysolution.machine import Machine, load_instructions
+from mysolution.machine import Machine, Predicate, load_instructions
 
 
 class Tile(enum.IntEnum):
@@ -27,17 +27,19 @@ def main():
 
     # Part 1
     controller = ArcadeController()
-    machine = Machine(instructions, controller, controller)
-    machine.run_until_terminate()
+    arcade = Machine(instructions, controller, controller)
+    arcade.run_until_terminate()
+
     controller.display.print_board()
     p1_answer = sum(tile == Tile.BLOCK for tile in controller.display.board.values())
     print(p1_answer)
 
     # Part 2
-    controller = AutoArcadeController(display_with_delay=0.02)
-    machine = Machine(instructions, controller, controller)
-    machine.memory[0] = 2  # insert coin
-    machine.run_until_terminate()
+    controller = AutoArcadeController()
+    arcade = Machine(instructions, controller, controller)
+    arcade.memory[0] = 2  # insert coin
+    arcade.run_until_terminate()
+
     p2_answer = controller.display.score
     print(p2_answer)
 
@@ -83,12 +85,12 @@ class ArcadeController:
     display: ArcadeDisplay = field(default_factory=ArcadeDisplay, init=False)
     move_map: ClassVar[dict[str, int]] = {'Q': -1, 'P': 1}
 
-    def get(self, _sentinel: Callable[[], bool] = None) -> int:
+    def get(self, sentinel: Predicate = None) -> int:
         self.display.print_board()
         value = input("Enter [QP] to move left/right: ").strip().upper()
         return self.move_map.get(value, 0)
 
-    def put(self, value: int, _sentinel: Callable[[], bool] = None):
+    def put(self, value: int, sentinel: Predicate = None):
         self.draw_buffer.append(value)
         if len(self.draw_buffer) == 3:
             self.display.update_from_draw_buffer(self.draw_buffer)
@@ -102,7 +104,7 @@ class AutoArcadeController(ArcadeController):
     """
     display_with_delay: float = None
 
-    def get(self, _sentinel: Callable[[], bool] = None) -> int:
+    def get(self, sentinel: Predicate = None) -> int:
         if self.display_with_delay:
             self.display.print_board()
             time.sleep(self.display_with_delay)

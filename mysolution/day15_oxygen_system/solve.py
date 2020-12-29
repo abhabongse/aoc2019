@@ -33,7 +33,7 @@ def main():
     rc_instructions = load_instructions(input_file)
 
     maze_solver = MazeSolver(rc_instructions)
-    maze_solver.run_until_terminate()
+    maze_solver.deploy_droid()
     maze_solver.print_area()
 
     # Part 1
@@ -63,7 +63,7 @@ class MazeSolver:
     def __post_init__(self, rc_instructions: Sequence[int]):
         self.rc_program = Machine(rc_instructions, self.input_port, self.output_port)
 
-    def run_until_terminate(self):
+    def deploy_droid(self):
         """
         Make calls to droid via remote control script (run on a separate thread)
         to map out the entire maze.
