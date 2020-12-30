@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import functools
 import itertools
+import multiprocessing as mp
 import os
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from typing import TypeVar
 
-from tqdm import trange
+import more_itertools
+from tqdm import tqdm, trange
 
-BASE_PATTERN = [0, 1, 0, -1]
+T = TypeVar('T')
+
+# Read-only data shared across multiple processes
+_N: int
+_PREFIX_SUM: list[int]
 
 
 def main():
@@ -33,21 +40,72 @@ def main():
 
 def apply_fft(signal: Sequence[int]) -> list[int]:
     """
-    Applies Flawed Frequency Transmission (FFT) algorithm
-    to an input signal (as a list of digits).
-    """
-    n = len(signal)
-    prefix_sum = list(itertools.accumulate(signal, initial=0))
+    Applies Flawed Frequency Transmission (FFT) algorithm to an input signal.
+    Subtasks are divided and run in parallel through multiprocessing pool.
 
-    new_signal = []
-    for repeat in trange(1, 1 + n, desc="Repeat", leave=False, mininterval=0.25):
-        accm = 0
-        for offset, sign in zip(range(-1, n, 2 * repeat), itertools.cycle([+1, -1])):
-            lo = min(offset + repeat, n)
-            hi = min(offset + 2 * repeat, n)
-            accm += sign * (prefix_sum[hi] - prefix_sum[lo])
-        new_signal.append(last_digit(accm))
-    return new_signal
+    It exploits copy-on-write behavior of read-only, globally shared data
+    to distribute the pre-computed `_N` and `_PREFIX_SUM`.
+    Therefore, this function can be called only by a single main process.
+    """
+    # Setup shared read-only data
+    global _N, _PREFIX_SUM
+    _N = len(signal)
+    _PREFIX_SUM = list(itertools.accumulate(signal, initial=0))
+
+    # Shuffling to make sure that tasks are evenly distributed
+    cpu_count = mp.cpu_count()
+    shuffled_repeats = tqdm(forward_pile_shuffle(range(1, 1 + _N), cpu_count),
+                            desc="Repeat", total=_N, leave=False)
+    with mp.Pool(cpu_count) as pool:
+        new_shuffled_signal = pool.map(_compute_digit, shuffled_repeats)
+
+    new_unshuffled_signal = list(reverse_pile_shuffle(new_shuffled_signal, cpu_count))
+    return new_unshuffled_signal
+
+
+def _compute_digit(pattern_repeat: int) -> int:
+    accm = 0
+    for offset, sign in zip(range(-1, _N, 2 * pattern_repeat), itertools.cycle([+1, -1])):
+        lo = min(offset + pattern_repeat, _N)
+        hi = min(offset + 2 * pattern_repeat, _N)
+        accm += sign * (_PREFIX_SUM[hi] - _PREFIX_SUM[lo])
+    return last_digit(accm)
+
+
+def forward_pile_shuffle(cards: Sequence[T], piles: int) -> Iterator[T]:
+    """
+    Pile-shuffles the cards (representing a sequence of values):
+    distributing cards in round robin fashion for the given number of piles
+    then concatenate them back in the same order.
+    >>> list(forward_pile_shuffle(range(11), 3))
+    [0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8]
+    """
+    n = len(cards)
+    for offset in range(piles):
+        for index in range(offset, n, piles):
+            yield cards[index]
+
+
+def reverse_pile_shuffle(cards: Sequence[T], piles: int) -> Iterator[T]:
+    """
+    Inverses the pile-shuffle operation.
+    >>> list(reverse_pile_shuffle([0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8], 3))
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    >>> list(reverse_pile_shuffle(range(11), 3))
+    """
+    n = len(cards)
+    pile_size, overflow = divmod(n, piles)
+    pile_groups = []
+
+    index = 0
+    for _ in range(overflow):
+        pile_groups.append(cards[index: index + pile_size + 1])
+        index += pile_size + 1
+    for _ in range(overflow, piles):
+        pile_groups.append(cards[index: index + pile_size])
+        index += pile_size
+
+    yield from more_itertools.interleave_longest(*pile_groups)
 
 
 def last_digit(number: int) -> int:
