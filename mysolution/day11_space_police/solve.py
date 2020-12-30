@@ -37,23 +37,19 @@ class PainterRobot:
     - motor mechanics (connected to output port) for painting and moving.
     """
     chip_instructions: InitVar[Sequence[int]]
-    starting_panel: InitVar[int]
-
     core_chip: Machine = field(init=False)
     camera_port: QueuePort = field(default_factory=QueuePort, init=False)
     motor_port: QueuePort = field(default_factory=QueuePort, init=False)
-    sigterm_flag: bool = field(default=False, init=False)
+    sigterm: threading.Event = field(default_factory=threading.Event, init=False)
 
+    starting_panel: InitVar[int]
     robot_pos: Vec = Vec(0, 0)
     robot_heading: Vec = Vec(0, 1)
-    canvas: dict[Vec, int] = field(init=False)
+    canvas: dict[Vec, int] = field(default_factory=dict, init=False)
 
     def __post_init__(self, chip_instructions: Sequence[int], starting_panel: int):
         self.core_chip = Machine(chip_instructions, self.camera_port, self.motor_port)
-        self.canvas = {self.robot_pos: starting_panel}
-
-    def sigterm_received(self) -> bool:
-        return self.sigterm_flag
+        self.canvas[self.robot_pos] = starting_panel
 
     def deploy_robot(self):
         """
@@ -63,7 +59,7 @@ class PainterRobot:
         thread = threading.Thread(target=self.observe_paint_move_loop)
         thread.start()
         self.core_chip.run_until_terminate()
-        self.sigterm_flag = True
+        self.sigterm.set()
         thread.join()
 
     def observe_paint_move_loop(self):
@@ -80,9 +76,9 @@ class PainterRobot:
         - Paint the current panel using info received via motor port
         - Turn and move to the next panel using info received via motor port
         """
-        self.camera_port.write_int(self.observe_panel(), sentinel=self.sigterm_received)
-        self.paint_panel(self.motor_port.read_int(sentinel=self.sigterm_received))
-        self.turn_and_move(self.motor_port.read_int(sentinel=self.sigterm_received))
+        self.camera_port.write_int(self.observe_panel(), sentinel=self.sigterm.is_set)
+        self.paint_panel(self.motor_port.read_int(sentinel=self.sigterm.is_set))
+        self.turn_and_move(self.motor_port.read_int(sentinel=self.sigterm.is_set))
 
     def observe_panel(self) -> int:
         """

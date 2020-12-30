@@ -57,6 +57,7 @@ class MazeSolver:
     rc_program: Machine = field(init=False)
     input_port: QueuePort = field(default_factory=QueuePort, init=False)
     output_port: QueuePort = field(default_factory=QueuePort, init=False)
+
     area: dict[Vec, Status] = field(default_factory=dict, init=False)
     oxygen: Vec = field(default=None, init=False)
 
@@ -71,7 +72,7 @@ class MazeSolver:
         thread = threading.Thread(target=self.rc_program.run_until_terminate)
         thread.start()
         self.explore_maze(pos=Vec(0, 0))
-        self.rc_program.sigterm_flag = True
+        self.rc_program.sigterm.set()
         thread.join()
 
     def explore_maze(self, pos: Vec):

@@ -49,7 +49,7 @@ def test_sequential_wiring(instructions: Sequence[int], phases: Sequence[int]) -
     and watches for the final output signal.
     """
     # Prepare ports
-    ports = [QueuePort(initial_values=[p], polling_interval=0.01) for p in phases]
+    ports = [QueuePort(initial_values=[p], polling_interval=0.002) for p in phases]
     ports[0].write_int(0)
     drain = QueuePort()
 
@@ -64,7 +64,7 @@ def test_sequential_wiring(instructions: Sequence[int], phases: Sequence[int]) -
     # Run until the last drain queue receives an output
     value = drain.read_int()
     for environ in environments:
-        environ.machine.sigterm_flag = True
+        environ.machine.sigterm.set()
         environ.thread.join()
 
     return value
@@ -78,7 +78,7 @@ def test_sequential_looped_wiring(instructions: Sequence[int], phases: Sequence[
     and watches for the final output signal.
     """
     # Prepare ports
-    ports = [QueuePort(initial_values=[p], polling_interval=0.01) for p in phases]
+    ports = [QueuePort(initial_values=[p], polling_interval=0.002) for p in phases]
     ports[0].write_int(0)
 
     # Initializes I/O interfaces, programs, and threads
@@ -93,7 +93,7 @@ def test_sequential_looped_wiring(instructions: Sequence[int], phases: Sequence[
     # Run until the last amplifier terminates
     environments[-1].thread.join()
     for environ in environments:
-        environ.machine.sigterm_flag = True
+        environ.machine.sigterm.set()
         environ.thread.join()
 
     return environments[-1].machine.output_tape[-1]

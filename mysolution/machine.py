@@ -8,6 +8,7 @@ import collections
 import inspect
 import itertools
 import sys
+import threading
 from collections.abc import Callable
 from dataclasses import InitVar, dataclass, field
 from queue import Empty, SimpleQueue
@@ -23,12 +24,12 @@ class Machine:
     """
     #: Sequence of intcode instructions
     instructions: InitVar[Sequence[int]]
-    #: Input port from which the machine receives an input integer
+    #: Input port from which the machine reads an input integer
     input_port: InputPort = None
-    #: Output port to which the machine sends an output integer
+    #: Output port to which the machine writes an output integer
     output_port: OutputPort = None
     #: Flag determining whether the machine has received sigterm
-    sigterm_flag: bool = field(default=False, init=False)
+    sigterm: threading.Event = field(default_factory=threading.Event, init=False)
 
     #: Memory state of the machine
     memory: collections.defaultdict[int] = field(init=False)
@@ -43,16 +44,12 @@ class Machine:
     output_tape: list[int] = field(default_factory=list, init=False)
 
     def __post_init__(self, instructions: Sequence[int]):
-        self.memory = collections.defaultdict(int, enumerate(instructions))  # noqa
-
-    def send_sigterm(self):
-        self.sigterm_flag = True
-
-    def sigterm_received(self) -> bool:
-        return self.sigterm_flag
+        self.memory = collections.defaultdict(int)
+        for addr, instr in enumerate(instructions):
+            self.memory[addr] = instr
 
     def run_until_terminate(self):
-        while not self.sigterm_flag:
+        while not self.sigterm.is_set():
             try:
                 self.execute_next()
             except (MachineTerminated, ResourceUnavailable):
@@ -102,7 +99,7 @@ class Machine:
         """
         if not self.input_port:
             raise RuntimeError("input port is not plugged")
-        value = self.input_port.read_int(sentinel=self.sigterm_received)
+        value = self.input_port.read_int(sentinel=self.sigterm.is_set)
         self.store_value(dest, value)
         self.input_tape.append(value)
         self.pc += 2
@@ -114,7 +111,7 @@ class Machine:
         if not self.output_port:
             raise RuntimeError("output port is not plugged")
         value = self.load_value(src)
-        self.output_port.write_int(value, sentinel=self.sigterm_received)
+        self.output_port.write_int(value, sentinel=self.sigterm.is_set)
         self.output_tape.append(value)
         self.pc += 2
 
@@ -258,8 +255,8 @@ class QueuePort:
     """
     I/O port wrapping over `queue.SimpleQueue` for thread-safe communication.
     """
-    initial_values: InitVar[Sequence[int]] = None
     queue: SimpleQueue[int] = field(init=False)
+    initial_values: InitVar[Sequence[int]] = None
     retries: int = None
     polling_interval: float = 1.0
 
