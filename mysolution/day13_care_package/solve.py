@@ -26,21 +26,23 @@ def main():
     instructions = load_instructions(input_file)
 
     # Part 1
-    controller = ArcadeController()
-    arcade = Machine(instructions, controller, controller)
+    display = ArcadeDisplay()
+    adapter = ArcadeDisplayAdapter(display)
+    arcade = Machine(instructions, adapter, adapter)
     arcade.run_until_terminate()
 
-    controller.display.print_board()
-    p1_answer = sum(tile == Tile.BLOCK for tile in controller.display.board.values())
+    display.print_board()
+    p1_answer = sum(tile == Tile.BLOCK for tile in display.board.values())
     print(p1_answer)
 
     # Part 2
-    controller = AutoArcadeController()
-    arcade = Machine(instructions, controller, controller)
+    display = ArcadeDisplay()
+    adapter = AutoArcadeDisplayAdapter(display)
+    arcade = Machine(instructions, adapter, adapter)
     arcade.memory[0] = 2  # insert coin
     arcade.run_until_terminate()
 
-    p2_answer = controller.display.score
+    p2_answer = display.score
     print(p2_answer)
 
 
@@ -76,13 +78,13 @@ class ArcadeDisplay:
 
 
 @dataclass
-class ArcadeController:
+class ArcadeDisplayAdapter:
     """
     Main controller for the arcade machine
     which itself also acts as I/O ports for the intcode machine.
     """
+    display: ArcadeDisplay
     draw_buffer: list[int] = field(default_factory=list, init=False)
-    display: ArcadeDisplay = field(default_factory=ArcadeDisplay, init=False)
     move_map: ClassVar[dict[str, int]] = {'Q': -1, 'P': 1}
 
     def read_int(self, sentinel: Predicate = None) -> int:
@@ -98,7 +100,7 @@ class ArcadeController:
 
 
 @dataclass
-class AutoArcadeController(ArcadeController):
+class AutoArcadeDisplayAdapter(ArcadeDisplayAdapter):
     """
     Specialized controller for the arcade machine with an autoplay feature.
     """
