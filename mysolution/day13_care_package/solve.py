@@ -85,12 +85,12 @@ class ArcadeController:
     display: ArcadeDisplay = field(default_factory=ArcadeDisplay, init=False)
     move_map: ClassVar[dict[str, int]] = {'Q': -1, 'P': 1}
 
-    def get(self, sentinel: Predicate = None) -> int:
+    def read_int(self, sentinel: Predicate = None) -> int:
         self.display.print_board()
         value = input("Enter [QP] to move left/right: ").strip().upper()
         return self.move_map.get(value, 0)
 
-    def put(self, value: int, sentinel: Predicate = None):
+    def write_int(self, value: int, sentinel: Predicate = None):
         self.draw_buffer.append(value)
         if len(self.draw_buffer) == 3:
             self.display.update_from_draw_buffer(self.draw_buffer)
@@ -104,7 +104,7 @@ class AutoArcadeController(ArcadeController):
     """
     display_with_delay: float = None
 
-    def get(self, sentinel: Predicate = None) -> int:
+    def read_int(self, sentinel: Predicate = None) -> int:
         if self.display_with_delay:
             self.display.print_board()
             time.sleep(self.display_with_delay)

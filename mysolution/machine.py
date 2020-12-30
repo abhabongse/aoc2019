@@ -1,3 +1,7 @@
+"""
+Intcode machine implementation.
+Everything in this module properly with threading or lack thereof.
+"""
 from __future__ import annotations
 
 import collections
@@ -40,6 +44,9 @@ class Machine:
 
     def __post_init__(self, instructions: Sequence[int]):
         self.memory = collections.defaultdict(int, enumerate(instructions))  # noqa
+
+    def send_sigterm(self):
+        self.sigterm_flag = True
 
     def sigterm_received(self) -> bool:
         return self.sigterm_flag
@@ -95,7 +102,7 @@ class Machine:
         """
         if not self.input_port:
             raise RuntimeError("input port is not plugged")
-        value = self.input_port.get(sentinel=self.sigterm_received)
+        value = self.input_port.read_int(sentinel=self.sigterm_received)
         self.store_value(dest, value)
         self.input_tape.append(value)
         self.pc += 2
@@ -107,7 +114,7 @@ class Machine:
         if not self.output_port:
             raise RuntimeError("output port is not plugged")
         value = self.load_value(src)
-        self.output_port.put(value, sentinel=self.sigterm_received)
+        self.output_port.write_int(value, sentinel=self.sigterm_received)
         self.output_tape.append(value)
         self.pc += 2
 
@@ -197,7 +204,7 @@ class InputPort(Protocol):
     Defines input port which connects an intcode machine with external input source.
     """
 
-    def get(self, sentinel: Predicate = None) -> int:
+    def read_int(self, sentinel: Predicate = None) -> int:
         """
         An intcode machine calls this method to read an input integer.
         Once `sentinel` predicate evaluates to `True` (if provided at all),
@@ -212,7 +219,7 @@ class OutputPort(Protocol):
     Defines output port which connects an intcode machine with external output source.
     """
 
-    def put(self, value: int, sentinel: Predicate = None):
+    def write_int(self, value: int, sentinel: Predicate = None):
         """
         An intcode machine calls this method to write an output integer.
         Once `sentinel` predicate evaluates to `True` (if provided at all),
@@ -228,7 +235,7 @@ class KeyboardPort:
     """
     prompt: str = "Enter an input integer: "
 
-    def get(self, sentinel: Predicate = None) -> int:
+    def read_int(self, sentinel: Predicate = None) -> int:
         return int(input(self.prompt))
 
 
@@ -241,7 +248,7 @@ class ScreenPort:
     file: Optional[TextIO] = sys.stdout
     silent: bool = False
 
-    def put(self, value: int, sentinel: Predicate = None):
+    def write_int(self, value: int, sentinel: Predicate = None):
         if not self.silent:
             print(f"{self.prefix}{value!r}", file=self.file)
 
@@ -260,9 +267,9 @@ class QueuePort:
         initial_values = initial_values or []
         self.queue = SimpleQueue()
         for value in initial_values:
-            self.put(value)
+            self.write_int(value)
 
-    def get(self, sentinel: Predicate = None) -> int:
+    def read_int(self, sentinel: Predicate = None) -> int:
         if self.polling_interval <= 0:
             raise ValueError("polling interval must be strictly positive")
         loop = range(self.retries) if self.retries else itertools.count()
@@ -274,7 +281,7 @@ class QueuePort:
                     raise ResourceUnavailable from exc
         raise ResourceUnavailable
 
-    def put(self, value: int, sentinel: Predicate = None):
+    def write_int(self, value: int, sentinel: Predicate = None):
         self.queue.put(value)
 
 

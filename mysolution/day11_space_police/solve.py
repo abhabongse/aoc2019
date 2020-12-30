@@ -18,13 +18,13 @@ def main():
 
     # Part 1
     painter = PainterRobot(chip_instructions, starting_panel=0)
-    painter.run_until_terminate()
+    painter.deploy_robot()
     p1_answer = len(painter.canvas)
     print(p1_answer)
 
     # Part 2
     painter = PainterRobot(chip_instructions, starting_panel=1)
-    painter.run_until_terminate()
+    painter.deploy_robot()
     painter.print_canvas()
 
 
@@ -55,7 +55,7 @@ class PainterRobot:
     def sigterm_received(self) -> bool:
         return self.sigterm_flag
 
-    def run_until_terminate(self):
+    def deploy_robot(self):
         """
         Runs the painter robot itself in a separate thread
         then terminate it once the core chip terminates.
@@ -80,9 +80,9 @@ class PainterRobot:
         - Paint the current panel using info received via motor port
         - Turn and move to the next panel using info received via motor port
         """
-        self.camera_port.put(self.observe_panel(), sentinel=self.sigterm_received)
-        self.paint_panel(self.motor_port.get(sentinel=self.sigterm_received))
-        self.turn_and_move(self.motor_port.get(sentinel=self.sigterm_received))
+        self.camera_port.write_int(self.observe_panel(), sentinel=self.sigterm_received)
+        self.paint_panel(self.motor_port.read_int(sentinel=self.sigterm_received))
+        self.turn_and_move(self.motor_port.read_int(sentinel=self.sigterm_received))
 
     def observe_panel(self) -> int:
         """

@@ -85,8 +85,8 @@ class MazeSolver:
 
             # Order the droid to move, observe the returned status,
             # and store the result
-            self.input_port.put(command)
-            status = Status(self.output_port.get())
+            self.input_port.write_int(command)
+            status = Status(self.output_port.read_int())
             self.area[pos + step] = status
             if status == Status.OXYGEN:
                 self.oxygen = pos + step
@@ -95,8 +95,8 @@ class MazeSolver:
             # and do not forget to backtrack
             if status in (Status.SPACE, Status.OXYGEN):
                 self.explore_maze(pos + step)
-                self.input_port.put(DIRECTIONAL_COMMANDS[-step])
-                self.output_port.get()
+                self.input_port.write_int(DIRECTIONAL_COMMANDS[-step])
+                self.output_port.read_int()
 
     def dist_from_source(self, source: Vec) -> dict[Vec, int]:
         """
