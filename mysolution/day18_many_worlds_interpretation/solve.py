@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import collections
 import heapq
+import itertools
 import math
 import os
 import string
-from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
+import time
+from collections.abc import Iterator, Mapping, Set
 from typing import NamedTuple, TypeVar
 
 import more_itertools
@@ -15,7 +17,7 @@ from mysolution.geometry import Vec
 
 T = TypeVar('T')
 
-LOCK_KEY_PAIRS = {c: c.lower() for c in string.ascii_uppercase}
+LOCK_KEY_PAIRS = {c.upper(): c for c in string.ascii_lowercase}
 ORTHOGONAL_STEPS = [Vec(1, 0), Vec(0, 1), Vec(-1, 0), Vec(0, -1)]
 
 
@@ -25,13 +27,12 @@ def main():
     grid = read_input_file(input_file)
 
     # Part 1
-    graph = build_higher_level_graph(grid)
-    p1_answer = find_shortest_trip_to_keys(graph, start=['@'])
+    p1_answer = shortest_trip_to_keys(grid)
     print(p1_answer)
+    time.sleep(1)
 
     # Part 2
-    graph = build_higher_level_graph(modify_grid(grid))
-    p2_answer = find_shortest_trip_to_keys(graph, start=['@0', '@1', '@2', '@3'])
+    p2_answer = shortest_trip_to_keys(modify_grid(grid))
     print(p2_answer)
 
 
@@ -41,107 +42,83 @@ class Edge(NamedTuple):
 
 
 class SuperNode(NamedTuple):
-    robots: tuple[str, ...]
+    robots: tuple[Vec, ...]
     visited: frozenset[str]
 
 
-def find_shortest_trip_to_keys(graph: dict[str, Sequence[Edge]], start: Sequence[str]) -> int:
+def shortest_trip_to_keys(grid: Mapping[Vec, str]) -> int:
     """
-    Computes the shortest distance of a trip to gather all keys
-    represented by node labels in lowercase.
+    Computes the shortest distance of a trip from the starting positions
+    to gather all keys (represented by node labels in lowercase).
     """
-    all_keys = frozenset(LOCK_KEY_PAIRS.values()) & graph.keys()
-    source = SuperNode(tuple(start), frozenset(start))
+    available_keys = {char: pos for pos, char in grid.items() if char in string.ascii_lowercase}
+    entrances = tuple(pos for pos, char in grid.items() if char == '@')
+
+    source = SuperNode(entrances, frozenset())
     distances = {}
     prelim_distances = {source: 0}
     queue = [(0, source)]
 
-    with tqdm(desc="Node States", total=1) as pbar:
+    with tqdm(desc="Node", total=1) as pbar:
         while queue:
             dist, node = heapq.heappop(queue)
             pbar.update(1)
             if node in distances:
                 continue
             distances[node] = dist
-            if all_keys <= node.visited:
+            if available_keys.keys() <= node.visited:
                 return dist
-
             for i, r in enumerate(node.robots):
-                for e in filter_edges(graph[r], node.visited):
+                for e in find_edges(grid, r, node.visited):
                     new_dist = dist + e.length
-                    new_node = SuperNode(tuple_replace(node.robots, i, e.succ), node.visited | {e.succ})
+                    new_robots = tuple_replace(node.robots, i, available_keys[e.succ])
+                    new_node = SuperNode(new_robots, node.visited | {e.succ})
                     if new_dist < prelim_distances.get(new_node, math.inf):
                         prelim_distances[new_node] = new_dist
                         heapq.heappush(queue, (new_dist, new_node))
                         pbar.total += 1
 
 
-def filter_edges(edges: Iterable[Edge], visited: Set[str]) -> Iterator[Edge]:
+def find_edges(grid: Mapping[Vec, str], source: Vec, visited: Set[str]) -> Iterator[Edge]:
     """
-    Filter the given sequence of edges that is allowed to be taken
-    given a set of already visited cells.
+    Produces a sequence of edges from the given node.
     """
-    for e in edges:
-        if e.succ in LOCK_KEY_PAIRS and LOCK_KEY_PAIRS[e.succ] not in visited:
-            continue
-        yield e
-
-
-def modify_grid(grid: Mapping[Vec, str]) -> dict[Vec, str]:
-    """
-    Modify grid, replacing one entrance with four.
-    """
-    center = more_itertools.one(pos for pos, char in grid.items() if char == '@')
-    grid = dict(grid)
-    grid[center] = '#'
-    grid[center + Vec(1, 0)] = '#'
-    grid[center + Vec(0, 1)] = '#'
-    grid[center + Vec(-1, 0)] = '#'
-    grid[center + Vec(0, -1)] = '#'
-    grid[center + Vec(1, 1)] = '@0'
-    grid[center + Vec(-1, 1)] = '@1'
-    grid[center + Vec(-1, -1)] = '@2'
-    grid[center + Vec(1, -1)] = '@3'
-    return grid
-
-
-def build_higher_level_graph(grid: Mapping[Vec, str]) -> dict[str, list[Edge]]:
-    """
-    Builds a higher-level graph of only content cells from the provided grid.
-    """
-    graph = {
-        char: find_nearby_content_cells(grid, pos)
-        for pos, char in grid.items()
-        if char not in ('#', '.')
-    }
-    return graph
-
-
-def find_nearby_content_cells(grid: Mapping[Vec, str], src_pos: Vec) -> list[Edge]:
-    """
-    Uses breadth-first search (BFS) algorithm to find the shortest distances
-    from the given source node to other significant nodes (excl '#' and '.')
-    which are not blocked by other signification nodes in their way.
-    """
-    distances = {src_pos: 0}
-    queue = collections.deque([src_pos])
+    distances = {source: 0}
+    queue = collections.deque([source])
     while queue:
         pos = queue.popleft()
         for step in ORTHOGONAL_STEPS:
             adj_pos = pos + step
-            if adj_pos in distances or grid.get(adj_pos, '#') == '#':
+            adj_char = grid.get(adj_pos, '#')
+            if adj_char == '#' or adj_pos in distances:
                 continue
             distances[adj_pos] = distances[pos] + 1
-            if grid[adj_pos] == '.':
+            if adj_char in string.ascii_lowercase:
+                yield Edge(adj_char, distances[adj_pos])
+            if grid[adj_pos] in ('.', '@') or LOCK_KEY_PAIRS.get(grid[adj_pos]) in visited:
                 queue.append(adj_pos)
-    return [
-        Edge(char, dist)
-        for pos, dist in distances.items()
-        if (char := grid[pos]) not in ('#', '.') and dist > 0
-    ]
+
+
+def modify_grid(grid: Mapping[Vec, str]) -> dict[Vec, str]:
+    """
+    Modify the grid by replacing one entrance with four which are diagonally adjacent.
+    """
+    center = more_itertools.one(pos for pos, char in grid.items() if char == '@')
+    grid = dict(grid)
+    grid[center] = '#'
+    for step in ORTHOGONAL_STEPS:
+        grid[center + step] = '#'
+    for dx, dy in itertools.product([-1, 1], [-1, 1]):
+        grid[center + Vec(dx, dy)] = '@'
+    return grid
 
 
 def tuple_replace(data: tuple[T, ...], index: int, value: T) -> tuple[T, ...]:
+    """
+    Duplicates the tuple but replacing the new value at the given index.
+    """
+    if not 0 <= index < len(data):
+        raise IndexError
     return tuple(value if i == index else e for i, e in enumerate(data))
 
 
