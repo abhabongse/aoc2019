@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import collections
 import heapq
+import math
 import os
 import string
-from collections.abc import Iterable, Iterator, Sequence
-from pprint import pprint
-from typing import NamedTuple
+from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
+from typing import NamedTuple, TypeVar
 
+import more_itertools
 from tqdm import tqdm
 
 from mysolution.geometry import Vec
 
-DOOR_CELLS = string.ascii_uppercase
-KEY_CELLS = string.ascii_lowercase
-CONTENT_CELLS = f'@{DOOR_CELLS}{KEY_CELLS}'
+T = TypeVar('T')
+
+LOCK_KEY_PAIRS = {c: c.lower() for c in string.ascii_uppercase}
 ORTHOGONAL_STEPS = [Vec(1, 0), Vec(0, 1), Vec(-1, 0), Vec(0, -1)]
 
 
@@ -25,33 +26,34 @@ def main():
 
     # Part 1
     graph = build_higher_level_graph(grid)
-    pprint(graph)
-    p1_answer = find_shortest_trip_to_keys(graph)
+    p1_answer = find_shortest_trip_to_keys(graph, start=['@'])
     print(p1_answer)
 
     # Part 2
-    p2_answer = ...
+    graph = build_higher_level_graph(modify_grid(grid))
+    p2_answer = find_shortest_trip_to_keys(graph, start=['@0', '@1', '@2', '@3'])
     print(p2_answer)
 
 
 class Edge(NamedTuple):
-    to_node: str
-    dist: int
+    succ: str
+    length: int
 
 
-class StateNode(NamedTuple):
-    recent: str
+class SuperNode(NamedTuple):
+    robots: tuple[str, ...]
     visited: frozenset[str]
 
 
-def find_shortest_trip_to_keys(graph: dict[str, Sequence[Edge]]) -> int:
+def find_shortest_trip_to_keys(graph: dict[str, Sequence[Edge]], start: Sequence[str]) -> int:
     """
     Computes the shortest distance of a trip to gather all keys
     represented by node labels in lowercase.
     """
-    all_keys = frozenset(KEY_CELLS) & graph.keys()
-    source = StateNode('@', frozenset(['@']))
+    all_keys = frozenset(LOCK_KEY_PAIRS.values()) & graph.keys()
+    source = SuperNode(tuple(start), frozenset(start))
     distances = {}
+    prelim_distances = {source: 0}
     queue = [(0, source)]
 
     with tqdm(desc="Node States", total=1) as pbar:
@@ -64,38 +66,58 @@ def find_shortest_trip_to_keys(graph: dict[str, Sequence[Edge]]) -> int:
             if all_keys <= node.visited:
                 return dist
 
-            for e in filter_edges(node, graph[node.recent]):
-                new_dist = dist + e.dist
-                new_node = StateNode(e.to_node, node.visited | {e.to_node})
-                if new_node not in distances:
-                    # The above check is optional but helps with performance optimization
-                    heapq.heappush(queue, (new_dist, new_node))
-                    pbar.total += 1
+            for i, r in enumerate(node.robots):
+                for e in filter_edges(graph[r], node.visited):
+                    new_dist = dist + e.length
+                    new_node = SuperNode(tuple_replace(node.robots, i, e.succ), node.visited | {e.succ})
+                    if new_dist < prelim_distances.get(new_node, math.inf):
+                        prelim_distances[new_node] = new_dist
+                        heapq.heappush(queue, (new_dist, new_node))
+                        pbar.total += 1
 
 
-def filter_edges(node: StateNode, edges: Iterable[Edge]) -> Iterator[Edge]:
+def filter_edges(edges: Iterable[Edge], visited: Set[str]) -> Iterator[Edge]:
     """
-    Filters edges that could be taken given the current state node.
+    Filter the given sequence of edges that is allowed to be taken
+    given a set of already visited cells.
     """
     for e in edges:
-        if e.to_node in DOOR_CELLS and e.to_node.lower() not in node.visited:
+        if e.succ in LOCK_KEY_PAIRS and LOCK_KEY_PAIRS[e.succ] not in visited:
             continue
         yield e
 
 
-def build_higher_level_graph(grid: dict[Vec, str]) -> dict[str, list[Edge]]:
+def modify_grid(grid: Mapping[Vec, str]) -> dict[Vec, str]:
+    """
+    Modify grid, replacing one entrance with four.
+    """
+    center = more_itertools.one(pos for pos, char in grid.items() if char == '@')
+    grid = dict(grid)
+    grid[center] = '#'
+    grid[center + Vec(1, 0)] = '#'
+    grid[center + Vec(0, 1)] = '#'
+    grid[center + Vec(-1, 0)] = '#'
+    grid[center + Vec(0, -1)] = '#'
+    grid[center + Vec(1, 1)] = '@0'
+    grid[center + Vec(-1, 1)] = '@1'
+    grid[center + Vec(-1, -1)] = '@2'
+    grid[center + Vec(1, -1)] = '@3'
+    return grid
+
+
+def build_higher_level_graph(grid: Mapping[Vec, str]) -> dict[str, list[Edge]]:
     """
     Builds a higher-level graph of only content cells from the provided grid.
     """
     graph = {
         char: find_nearby_content_cells(grid, pos)
         for pos, char in grid.items()
-        if char in CONTENT_CELLS
+        if char not in ('#', '.')
     }
     return graph
 
 
-def find_nearby_content_cells(grid: dict[Vec, str], src_pos: Vec) -> list[Edge]:
+def find_nearby_content_cells(grid: Mapping[Vec, str], src_pos: Vec) -> list[Edge]:
     """
     Uses breadth-first search (BFS) algorithm to find the shortest distances
     from the given source node to other significant nodes (excl '#' and '.')
@@ -115,8 +137,12 @@ def find_nearby_content_cells(grid: dict[Vec, str], src_pos: Vec) -> list[Edge]:
     return [
         Edge(char, dist)
         for pos, dist in distances.items()
-        if (char := grid[pos]) in CONTENT_CELLS and dist > 0
+        if (char := grid[pos]) not in ('#', '.') and dist > 0
     ]
+
+
+def tuple_replace(data: tuple[T, ...], index: int, value: T) -> tuple[T, ...]:
+    return tuple(value if i == index else e for i, e in enumerate(data))
 
 
 def read_input_file(filename: str) -> dict[Vec, str]:
