@@ -269,7 +269,7 @@ class QueuePort:
     def read_int(self, sentinel: Predicate = None) -> int:
         if self.polling_interval <= 0:
             raise ValueError("polling interval must be strictly positive")
-        loop = range(self.retries) if self.retries else itertools.count()
+        loop = itertools.count() if self.retries is None else range(self.retries + 1)
         for _ in loop:
             try:
                 return self.queue.get(timeout=self.polling_interval)
