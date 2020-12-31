@@ -48,13 +48,15 @@ class SuperNode(NamedTuple):
 
 def shortest_trip_to_keys(grid: Mapping[Vec, str]) -> int:
     """
-    Computes the shortest distance of a trip from the starting positions
-    to gather all keys (represented by node labels in lowercase).
+    Computes the shortest distance that all robots have to take to gather all keys.
+    Each robot starts at the position marked with '@'.
+    Each key is labeled in lowercase letter
+    which may be used to open a blocking door (in the corresponding uppercase form).
     """
     available_keys = {char: pos for pos, char in grid.items() if char in string.ascii_lowercase}
     entrances = tuple(pos for pos, char in grid.items() if char == '@')
-
     source = SuperNode(entrances, frozenset())
+
     distances = {}
     prelim_distances = {source: 0}
     queue = [(0, source)]
@@ -81,7 +83,12 @@ def shortest_trip_to_keys(grid: Mapping[Vec, str]) -> int:
 
 def find_edges(grid: Mapping[Vec, str], source: Vec, visited: Set[str]) -> Iterator[Edge]:
     """
-    Produces a sequence of edges from the given node.
+    Produces a sequence of edges starting at the given source node.
+    Each edge consists of a successor node from the given source position
+    (which must represents a key as lowercase letter) plus the distance from the source.
+    This function uses breadth-first search (BFS) algorithm to compute shortest distances.
+    If the key (in lowercase) for a particular door (in the corresponding uppercase) is visited,
+    then such door is allowed to be taken during the breadth-first search.
     """
     distances = {source: 0}
     queue = collections.deque([source])
