@@ -32,8 +32,8 @@ def main():
     input_file = os.path.join(this_dir, 'input.txt')
     rc_instructions = load_instructions(input_file)
 
-    maze_solver = MazeSolver(rc_instructions)
-    maze_solver.deploy_droid()
+    controller = DroneController(rc_instructions)
+    maze_solver = MazeSolver(controller)
     maze_solver.print_area()
 
     # Part 1
@@ -48,73 +48,18 @@ def main():
 
 
 @dataclass
-class DroneRemoteController:
-    """
-    A remote controller to deploy a drone to a particular location
-    and see it is stationery or gets pulled by *something*. Spooky.
-    """
-    rc_instructions: InitVar[Sequence[int]]
-    rc_program: Machine = field(init=False)
-    input_port: QueuePort = field(default_factory=QueuePort, init=False)
-    output_port: QueuePort = field(default_factory=QueuePort, init=False)
-    thread: threading.Thread = field(init=False)
-
-    def __post_init__(self, rc_instructions: Sequence[int]):
-        self.rc_program = Machine(rc_instructions, self.input_port, self.output_port)
-        self.thread = threading.Thread(target=self.rc_program.run_until_terminate)
-
-    def open(self):
-        self.thread.start()
-
-    def close(self):
-        self.rc_program.sigterm.set()
-        self.thread.join()
-
-    def __enter__(self):
-        self.open()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def deploy_to_position(self, x: int, y: int) -> int:
-        """
-        Deploys a drone to the given position and observe the result.
-        This function returns 0 if the drone is stationery
-        or returns 1 if it gets pulled by something.
-        """
-        self.input_port.write_int(x)
-        self.input_port.write_int(y)
-        return self.output_port.read_int()
-
-
-@dataclass
 class MazeSolver:
     """
     A maze solving software which interacts with the remote control (R/C) script
     (written with intcode instructions) to remotely control the repair droid.
     """
-    rc_instructions: InitVar[Sequence[int]]
-    rc_program: Machine = field(init=False)
-    input_port: QueuePort = field(default_factory=QueuePort, init=False)
-    output_port: QueuePort = field(default_factory=QueuePort, init=False)
-
+    controller: DroneController
     area: dict[Vec, Status] = field(default_factory=dict, init=False)
     oxygen: Vec = field(default=None, init=False)
 
-    def __post_init__(self, rc_instructions: Sequence[int]):
-        self.rc_program = Machine(rc_instructions, self.input_port, self.output_port)
-
-    def deploy_droid(self):
-        """
-        Make calls to droid via remote control script (run on a separate thread)
-        to map out the entire maze.
-        """
-        thread = threading.Thread(target=self.rc_program.run_until_terminate)
-        thread.start()
-        self.explore_maze(pos=Vec(0, 0))
-        self.rc_program.sigterm.set()
-        thread.join()
+    def __post_init__(self):
+        with self.controller:
+            self.explore_maze(pos=Vec(0, 0))
 
     def explore_maze(self, pos: Vec):
         """
@@ -127,8 +72,7 @@ class MazeSolver:
 
             # Order the droid to move, observe the returned status,
             # and store the result
-            self.input_port.write_int(command)
-            status = Status(self.output_port.read_int())
+            status = self.controller.move(step)
             self.area[pos + step] = status
             if status == Status.OXYGEN:
                 self.oxygen = pos + step
@@ -137,8 +81,7 @@ class MazeSolver:
             # and do not forget to backtrack
             if status in (Status.SPACE, Status.OXYGEN):
                 self.explore_maze(pos + step)
-                self.input_port.write_int(DIRECTIONAL_COMMANDS[-step])
-                self.output_port.read_int()
+                self.controller.move(-step)
 
     def dist_from_source(self, source: Vec) -> dict[Vec, int]:
         """
@@ -173,6 +116,44 @@ class MazeSolver:
         if pos in self.area:
             return CELL_CHARS[self.area[pos]]
         return ' '
+
+
+@dataclass
+class DroneController:
+    """
+    A remote controller script to deploy a drone to a particular location
+    and see it is stationery or gets pulled by *something*. Spooky.
+    """
+    rc_instructions: InitVar[Sequence[int]]
+    rc_program: Machine = field(init=False)
+    input_port: QueuePort = field(default_factory=QueuePort, init=False)
+    output_port: QueuePort = field(default_factory=QueuePort, init=False)
+    thread: threading.Thread = field(init=False)
+
+    def __post_init__(self, rc_instructions: Sequence[int]):
+        self.rc_program = Machine(rc_instructions, self.input_port, self.output_port)
+        self.thread = threading.Thread(target=self.rc_program.run_until_terminate)
+
+    def open(self):
+        self.thread.start()
+
+    def close(self):
+        self.rc_program.sigterm.set()
+        self.thread.join()
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def move(self, step: Vec) -> Status:
+        """
+        Moves the drone by the provided step.
+        """
+        self.input_port.write_int(DIRECTIONAL_COMMANDS[step])
+        return Status(self.output_port.read_int())
 
 
 if __name__ == '__main__':

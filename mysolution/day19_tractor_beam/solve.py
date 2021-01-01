@@ -41,7 +41,7 @@ def probe_area(controller: DroneController, width: int, height: int) -> int:
 @dataclass(init=False)
 class DroneController:
     """
-    A remote controller to deploy a drone to a particular location
+    A remote controller (R/C) script to deploy a drone to a particular location
     and see it is stationery or gets pulled by *something*. Spooky.
     """
     rc_instructions: list[int]

@@ -85,8 +85,7 @@ def test_sequential_looped_wiring(instructions: Sequence[int], phases: Sequence[
     environments = []
     for index, (input_port, output_port) in enumerate(more_itertools.windowed(ports + ports[:1], n=2)):
         machine = Machine(instructions, input_port, output_port)
-        thread = threading.Thread(target=machine.run_until_terminate)
-        thread.name = f"thread-{index}"
+        thread = threading.Thread(target=machine.run_until_terminate, name=f"thread-{index}")
         thread.start()
         environments.append(Environ(machine, thread))
 
