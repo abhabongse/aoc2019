@@ -66,7 +66,7 @@ class MazeSolver:
         Recursively explores each of four possible directions.
         Part of the depth-first search (DFS) algorithm.
         """
-        for step, command in DIRECTIONAL_COMMANDS.items():
+        for step in DIRECTIONAL_COMMANDS.keys():
             if pos + step in self.area:
                 continue  # already explored
 
@@ -121,8 +121,7 @@ class MazeSolver:
 @dataclass
 class DroneController:
     """
-    A remote controller script to deploy a drone to a particular location
-    and see it is stationery or gets pulled by *something*. Spooky.
+    A remote controller script to control a droid to move according to given instructions.
     """
     rc_instructions: InitVar[Sequence[int]]
     rc_program: Machine = field(init=False)

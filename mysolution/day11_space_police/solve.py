@@ -8,22 +8,22 @@ from dataclasses import InitVar, dataclass, field
 from typing import TextIO
 
 from mysolution.geometry import Vec
-from mysolution.machine import Machine, QueuePort, ResourceUnavailable, load_instructions
+from mysolution.machine import Machine, Predicate, QueuePort, ResourceUnavailable, load_instructions
 
 
 def main():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(this_dir, 'input.txt')
-    chip_instructions = load_instructions(input_file)
+    instructions = load_instructions(input_file)
 
     # Part 1
-    painter = PainterRobot(chip_instructions, starting_panel=0)
+    painter = PainterRobot(RobotChip(instructions), starting_panel=0)
     painter.deploy_robot()
     p1_answer = len(painter.canvas)
     print(p1_answer)
 
     # Part 2
-    painter = PainterRobot(chip_instructions, starting_panel=1)
+    painter = PainterRobot(RobotChip(instructions), starting_panel=1)
     painter.deploy_robot()
     painter.print_canvas()
 
@@ -36,19 +36,14 @@ class PainterRobot:
     - a camera sensor (connected to input port of the core chip), and
     - motor mechanics (connected to output port) for painting and moving.
     """
-    chip_instructions: InitVar[Sequence[int]]
-    core_chip: Machine = field(init=False)
-    camera_port: QueuePort = field(default_factory=QueuePort, init=False)
-    motor_port: QueuePort = field(default_factory=QueuePort, init=False)
+    chip: RobotChip
     sigterm: threading.Event = field(default_factory=threading.Event, init=False)
-
     starting_panel: InitVar[int]
     robot_pos: Vec = Vec(0, 0)
     robot_heading: Vec = Vec(0, 1)
     canvas: dict[Vec, int] = field(default_factory=dict, init=False)
 
-    def __post_init__(self, chip_instructions: Sequence[int], starting_panel: int):
-        self.core_chip = Machine(chip_instructions, self.camera_port, self.motor_port)
+    def __post_init__(self, starting_panel: int):
         self.canvas[self.robot_pos] = starting_panel
 
     def deploy_robot(self):
@@ -58,27 +53,18 @@ class PainterRobot:
         """
         thread = threading.Thread(target=self.observe_paint_move_loop)
         thread.start()
-        self.core_chip.run_until_terminate()
+        self.chip.program.run_until_terminate()
         self.sigterm.set()
         thread.join()
 
     def observe_paint_move_loop(self):
         while True:
             try:
-                self.execute_next_cycle()
+                new_color, turn_direction = self.chip.call(self.observe_panel(), self.sigterm.is_set)
+                self.paint_panel(new_color)
+                self.turn_and_move(turn_direction)
             except ResourceUnavailable:
                 break
-
-    def execute_next_cycle(self):
-        """
-        Performs the following sequence of steps:
-        - Send the color of the current panel to the chip via camera port
-        - Paint the current panel using info received via motor port
-        - Turn and move to the next panel using info received via motor port
-        """
-        self.camera_port.write_int(self.observe_panel(), sentinel=self.sigterm.is_set)
-        self.paint_panel(self.motor_port.read_int(sentinel=self.sigterm.is_set))
-        self.turn_and_move(self.motor_port.read_int(sentinel=self.sigterm.is_set))
 
     def observe_panel(self) -> int:
         """
@@ -115,6 +101,35 @@ class PainterRobot:
         for y in reversed(y_bound):
             buffer = ''.join('#' if Vec(x, y) in black_pixels else ' ' for x in x_bound)
             print(buffer, file=stream)
+
+
+@dataclass
+class RobotChip:
+    """
+    The brain of the painter robot which determines what the robot should do
+    by reading the color of the current tile through the camera input port
+    and command the robot to paint the new color on such tile
+    and then move to a new tile through the motor output port.
+    """
+    instructions: InitVar[Sequence[int]]
+    program: Machine = field(init=False)
+    input_port: QueuePort = field(default_factory=QueuePort, init=False)
+    output_port: QueuePort = field(default_factory=QueuePort, init=False)
+    thread: threading.Thread = field(init=False)
+
+    def __post_init__(self, instructions: Sequence[int]):
+        self.program = Machine(instructions, self.input_port, self.output_port)
+
+    def call(self, color: int, sentinel: Predicate) -> tuple[int, int]:
+        """
+        Runs a single sensory perception and motor response loop.
+        The chip receives the color of the current tile
+        and responses with the new color to paint and where to move next.
+        """
+        self.input_port.write_int(color, sentinel=sentinel)
+        new_color = self.output_port.read_int(sentinel=sentinel)
+        turn_direction = self.output_port.read_int(sentinel=sentinel)
+        return new_color, turn_direction
 
 
 if __name__ == '__main__':
