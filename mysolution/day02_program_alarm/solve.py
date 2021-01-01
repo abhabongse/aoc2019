@@ -24,7 +24,7 @@ def main():
         machine = setup_machine(instructions, noun, verb)
         machine.run_until_terminate()
         if machine.memory[0] == target:
-            print(f"{100 * noun + verb} ({noun=}, {verb=})")
+            print(f"{noun=}, {verb=}: {100 * noun + verb}")
 
 
 def setup_machine(instructions: Sequence[int], noun: int, verb: int) -> Machine:
