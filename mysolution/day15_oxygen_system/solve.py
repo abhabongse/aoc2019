@@ -48,6 +48,47 @@ def main():
 
 
 @dataclass
+class DroneRemoteController:
+    """
+    A remote controller to deploy a drone to a particular location
+    and see it is stationery or gets pulled by *something*. Spooky.
+    """
+    rc_instructions: InitVar[Sequence[int]]
+    rc_program: Machine = field(init=False)
+    input_port: QueuePort = field(default_factory=QueuePort, init=False)
+    output_port: QueuePort = field(default_factory=QueuePort, init=False)
+    thread: threading.Thread = field(init=False)
+
+    def __post_init__(self, rc_instructions: Sequence[int]):
+        self.rc_program = Machine(rc_instructions, self.input_port, self.output_port)
+        self.thread = threading.Thread(target=self.rc_program.run_until_terminate)
+
+    def open(self):
+        self.thread.start()
+
+    def close(self):
+        self.rc_program.sigterm.set()
+        self.thread.join()
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def deploy_to_position(self, x: int, y: int) -> int:
+        """
+        Deploys a drone to the given position and observe the result.
+        This function returns 0 if the drone is stationery
+        or returns 1 if it gets pulled by something.
+        """
+        self.input_port.write_int(x)
+        self.input_port.write_int(y)
+        return self.output_port.read_int()
+
+
+@dataclass
 class MazeSolver:
     """
     A maze solving software which interacts with the remote control (R/C) script
