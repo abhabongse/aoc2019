@@ -34,8 +34,17 @@ class Vec(NamedTuple):
     def __add__(self, other: Vec) -> Vec:
         return Vec(self.x + other.x, self.y + other.y)
 
+    def __radd__(self, other: Vec) -> Vec:
+        return Vec(other.x + self.x, other.y + self.y)
+
     def __sub__(self, other: Vec) -> Vec:
         return self + (-other)
+
+    def __mul__(self, other: int) -> Vec:
+        return Vec(self.x * other, self.y * other)
+
+    def __rmul__(self, other: int) -> Vec:
+        return Vec(other * self.x, other * self.y)
 
     def norm1(self) -> T:
         return abs(self.x) + abs(self.y)
