@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import collections
+import logging
 import os
 import threading
 import time
@@ -11,49 +13,155 @@ from typing import NamedTuple
 from mysolution.geometry import Vec
 from mysolution.machine import Machine, Predicate, load_instructions
 
+logger = logging.getLogger(__name__)
+
 
 def main():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(this_dir, 'input.txt')
     instructions = load_instructions(input_file)
 
-    # Part 1
+    logging.basicConfig(
+        format='%(threadName)s %(levelname)5s %(relativeCreated)5d: %(message)s',
+        level=logging.DEBUG,
+    )
     start_time = time.perf_counter()
-    first_vec = run_network_grid(instructions, range(50))
-    p1_answer = first_vec.y
-    print(p1_answer)
-    print(f"first part completed in {time.perf_counter() - start_time:.3f}s")
 
-    # Part 2
-    # machine = Machine(instructions, QueuePort(script), ASCIIScreenPort())
-    # machine.run_until_terminate()
+    # Setup all intcode machine with their respective addresses
+    switch = CentralSwitch()
+    environments = []
+    for addr in range(50):
+        adapter = switch.get_bridge(addr)
+        machine = Machine(instructions, adapter, adapter)
+        thread = threading.Thread(target=machine.run_until_terminate, name=f"machine-{addr:02}")
+        environments.append(Environ(machine, thread))
+
+    # Start up all machines
+    for environ in environments:
+        environ.thread.start()
+
+    # Wait until NAT receives the first message
+    switch.nat_first_received.wait()
+    p1_answer = switch.nat_received_msgs[0].y
+    print(p1_answer)
+    logger.info(f"part 1 done in {time.perf_counter() - start_time}s since beginning")
+
+    # Start up NAT and run until first Y repeat
+    switch.nat_run_until_send_repeated()
+    p2_answer = switch.nat_sent_msgs[-1].y
+    print(p2_answer)
+    logger.info(f"part 2 done in {time.perf_counter() - start_time}s since beginning")
+
+    # Clean up threads
+    for environ in environments:
+        environ.machine.sigterm.set()
+        environ.thread.join()
+
+
+class Environ(NamedTuple):
+    """
+    Represents a pair of intcode machine
+    and a thread object in which the machine executes.
+    """
+    machine: Machine
+    thread: threading.Thread
 
 
 @dataclass
 class CentralSwitch:
     """
-    Manages peer-to-peer messaging.
+    A centralized controller which manages the peer-to-peer messaging
+    between intcode machines with each other and with NAT.
     """
-    special_addr: int
+    nat_addr: int = 255
     bridges: dict[int, BridgeAdapter] = field(default_factory=dict, init=False)
-    special_output: SimpleQueue = field(default_factory=SimpleQueue, init=False)
-    mutex: threading.Lock = field(default_factory=threading.Lock, init=False)
+
+    idle_flags: dict[int, int] = field(default_factory=dict, init=False)
+    idle_mutex: threading.RLock = field(init=False)
+    idling: threading.Condition = field(init=False)
+
+    nat_first_received: threading.Event = field(default_factory=threading.Event, init=False)
+    nat_received_msgs: collections.deque[Vec] = field(default_factory=collections.deque, init=False)
+    nat_sent_msgs: collections.deque[Vec] = field(default_factory=collections.deque, init=False)
+
+    def __post_init__(self):
+        self.idle_mutex = threading.RLock()
+        self.idling = threading.Condition(lock=self.idle_mutex)
 
     def get_bridge(self, host_addr: int) -> BridgeAdapter:
+        """
+        Creates a new bridge adapter with the given host address.
+        """
+        if host_addr == self.nat_addr:
+            raise ValueError(f"unacceptable machine address: {host_addr}")
         if host_addr not in self.bridges:
             self.bridges[host_addr] = BridgeAdapter(self, host_addr)
         return self.bridges[host_addr]
 
-    def send_from_buffer(self, send_addr: int, buffer: Sequence[int]):
+    def dispatch_buffer(self, send_addr: int, buffer: Sequence[int]):
+        """
+        Extracts information from the given output buffer
+        and delivers the message to the appropriate destination (either a machine or NAT).
+        """
         recv_addr, x, y = buffer
-        with self.mutex:
-            print(f"message from [{send_addr:03}] to [{recv_addr:03}]: {x=}, {y=}")
-        if recv_addr == self.special_addr:
-            self.special_output.put(x)
-            self.special_output.put(y)
+        self.log_msg(send_addr, recv_addr, x, y)
+        if recv_addr == self.nat_addr:
+            self.nat_received_msgs.append(Vec(x, y))
+            self.nat_first_received.set()
         else:
-            self.bridges[recv_addr].in_queue.put(x)
-            self.bridges[recv_addr].in_queue.put(y)
+            self.deliver_to_machine(recv_addr, x, y)
+
+    def deliver_to_machine(self, addr: int, x: int, y: int):
+        """
+        Delivers the message to a machine at the given address.
+        Sends the message to the given receiver addresss.
+        """
+        self.bridges[addr].in_queue.put(x)
+        self.bridges[addr].in_queue.put(y)
+        self.update_idling(addr, False)
+
+    def update_idling(self, addr: int, flag: bool):
+        """
+        Updates the idling status of a machine at the given address.
+        Updates the idling flag for an address and the total idling count.
+        """
+        with self.idle_mutex:
+            self.idle_flags[addr] = int(flag)
+            self.idling.notify()
+
+    def nat_run_until_send_repeated(self):
+        """
+        Runs the NAT until the first consecutive repeat of the Y-message
+        would about to be sent to the machine at address 0.
+        """
+        while True:
+            with self.idling:
+                while not self.network_idle():
+                    self.idling.wait()
+                recent_msg = self.nat_received_msgs[-1]
+                if self.nat_sent_msgs and self.nat_sent_msgs[-1].y == recent_msg.y:
+                    return  # found a repeat
+                self.nat_sent_msgs.append(recent_msg)
+                self.deliver_to_machine(0, recent_msg.x, recent_msg.y)
+                self.log_msg(self.nat_addr, 0, recent_msg.x, recent_msg.y)
+
+    def network_idle(self) -> bool:
+        """
+        Determines whether the entire network is considered idle:
+        that is whether each machine is idle (constantly waiting for input)
+        AND there is no message waiting in any queue.
+        """
+        return (sum(self.idle_flags.values()) >= len(self.bridges)
+                and all(not b.in_queue.qsize() for b in self.bridges.values()))
+
+    def log_msg(self, send_addr: int, recv_addr: int, x: int, y: int):
+        """
+        Uses logging module to log the messages passing through
+        from the given sender to the given receiver.
+        """
+        send_addr = 'NAT' if send_addr == self.nat_addr else f'{send_addr:03}'
+        recv_addr = 'NAT' if recv_addr == self.nat_addr else f'{recv_addr:03}'
+        logger.debug(f"msg from [{send_addr}] to [{recv_addr}]: {x=}, {y=}")
 
 
 @dataclass
@@ -73,51 +181,14 @@ class BridgeAdapter:
         try:
             return self.in_queue.get_nowait()
         except Empty:
+            self.switch.update_idling(self.addr, True)
             return -1
 
     def write_int(self, value: int, sentinel: Predicate = None):
         self.out_buffer.append(value)
         if len(self.out_buffer) == 3:
-            self.switch.send_from_buffer(self.addr, self.out_buffer)
+            self.switch.dispatch_buffer(self.addr, self.out_buffer)
             self.out_buffer = []
-
-
-class Environ(NamedTuple):
-    """
-    Represents a pair of intcode machine
-    and a thread object in which the machine executes.
-    """
-    machine: Machine
-    thread: threading.Thread
-
-
-def run_network_grid(instructions: Sequence[int], addresses: Sequence[int]) -> Vec:
-    """
-    Setups intcode machines, one for each address,
-    and simultaneously runs them through central switch.
-
-    Returns the first x, y value sent to address 255.
-    """
-    switch = CentralSwitch(special_addr=255)
-    environments = []
-
-    for addr in addresses:
-        adapter = switch.get_bridge(addr)
-        machine = Machine(instructions, adapter, adapter)
-        thread = threading.Thread(target=machine.run_until_terminate)
-        environments.append(Environ(machine, thread))
-
-    for environ in environments:
-        environ.thread.start()
-
-    first_x = switch.special_output.get()
-    first_y = switch.special_output.get()
-
-    for environ in environments:
-        environ.machine.sigterm.set()
-        environ.thread.join()
-
-    return Vec(first_x, first_y)
 
 
 if __name__ == '__main__':
