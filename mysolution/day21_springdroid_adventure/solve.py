@@ -4,15 +4,9 @@ import os
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, TextIO, Union
+from typing import Optional, TextIO
 
-from mysolution.geometry import Vec
 from mysolution.machine import Machine, Predicate, QueuePort, load_instructions
-
-MoveFunc = Sequence[Union[int, str]]
-
-ORTHOGONAL_STEPS = [Vec(1, 0), Vec(0, 1), Vec(-1, 0), Vec(0, -1)]
-SCAFFOLD_CHARS = '#^v<>'
 
 
 def main():

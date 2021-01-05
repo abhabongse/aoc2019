@@ -255,14 +255,13 @@ class QueuePort:
     """
     I/O port wrapping over `queue.SimpleQueue` for thread-safe communication.
     """
-    queue: SimpleQueue[int] = field(init=False)
+    queue: SimpleQueue[int] = field(default_factory=SimpleQueue, init=False)
     initial_values: InitVar[Sequence[int]] = None
     retries: int = None
     polling_interval: float = 1.0
 
     def __post_init__(self, initial_values: Sequence[int] = None):
         initial_values = initial_values or []
-        self.queue = SimpleQueue()
         for value in initial_values:
             self.write_int(value)
 

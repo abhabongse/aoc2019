@@ -4,7 +4,6 @@ import itertools
 import os
 import threading
 from collections.abc import Sequence
-from threading import Thread
 from typing import NamedTuple
 
 import more_itertools
@@ -38,7 +37,7 @@ class Environ(NamedTuple):
     and a thread object in which the machine executes.
     """
     machine: Machine
-    thread: Thread
+    thread: threading.Thread
 
 
 def test_sequential_wiring(instructions: Sequence[int], phases: Sequence[int]) -> int:
