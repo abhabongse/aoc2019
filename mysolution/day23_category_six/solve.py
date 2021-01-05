@@ -114,7 +114,7 @@ class CentralSwitch:
     def deliver_to_machine(self, addr: int, x: int, y: int):
         """
         Delivers the message to a machine at the given address.
-        Sends the message to the given receiver addresss.
+        Sends the message to the given receiver address.
         """
         self.bridges[addr].in_queue.put(x)
         self.bridges[addr].in_queue.put(y)
