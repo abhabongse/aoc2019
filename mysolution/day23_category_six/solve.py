@@ -7,7 +7,6 @@ import threading
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from queue import Empty, SimpleQueue
 from typing import NamedTuple
 
 from mysolution.geometry import Vec
@@ -76,10 +75,7 @@ class CentralSwitch:
     nat_addr: int = 255
     bridges: dict[int, BridgeAdapter] = field(default_factory=dict, init=False)
 
-    idle_flags: dict[int, int] = field(default_factory=dict, init=False)
-    idle_mutex: threading.RLock = field(init=False)
-    idling: threading.Condition = field(init=False)
-
+    mutex: threading.Lock = field(default_factory=threading.Lock, init=False)
     nat_first_received: threading.Event = field(default_factory=threading.Event, init=False)
     nat_received_msgs: collections.deque[Vec] = field(default_factory=collections.deque, init=False)
     nat_sent_msgs: collections.deque[Vec] = field(default_factory=collections.deque, init=False)
@@ -116,18 +112,10 @@ class CentralSwitch:
         Delivers the message to a machine at the given address.
         Sends the message to the given receiver address.
         """
-        self.bridges[addr].in_queue.put(x)
-        self.bridges[addr].in_queue.put(y)
-        self.update_idling(addr, False)
-
-    def update_idling(self, addr: int, flag: bool):
-        """
-        Updates the idling status of a machine at the given address.
-        Updates the idling flag for an address and the total idling count.
-        """
-        with self.idle_mutex:
-            self.idle_flags[addr] = int(flag)
-            self.idling.notify()
+        adapter = self.bridges[addr]
+        adapter.in_queue.extend([x, y])
+        with self.mutex:
+            adapter.in_starving.clear()
 
     def nat_run_until_send_repeated(self):
         """
@@ -135,15 +123,16 @@ class CentralSwitch:
         would about to be sent to the machine at address 0.
         """
         while True:
-            with self.idling:
-                while not self.network_idle():
-                    self.idling.wait()
-                recent_msg = self.nat_received_msgs[-1]
-                if self.nat_sent_msgs and self.nat_sent_msgs[-1].y == recent_msg.y:
-                    return  # found a repeat
-                self.nat_sent_msgs.append(recent_msg)
-                self.deliver_to_machine(0, recent_msg.x, recent_msg.y)
-                self.log_msg(self.nat_addr, 0, recent_msg.x, recent_msg.y)
+            if not self.network_idle():
+                for adapter in self.bridges.values():
+                    adapter.in_starving.wait()
+                continue
+            recent_msg = self.nat_received_msgs[-1]
+            if self.nat_sent_msgs and self.nat_sent_msgs[-1].y == recent_msg.y:
+                return  # found a repeat
+            self.nat_sent_msgs.append(recent_msg)
+            self.deliver_to_machine(0, recent_msg.x, recent_msg.y)
+            self.log_msg(self.nat_addr, 0, recent_msg.x, recent_msg.y)
 
     def network_idle(self) -> bool:
         """
@@ -151,8 +140,8 @@ class CentralSwitch:
         that is whether each machine is idle (constantly waiting for input)
         AND there is no message waiting in any queue.
         """
-        return (sum(self.idle_flags.values()) >= len(self.bridges)
-                and all(not b.in_queue.qsize() for b in self.bridges.values()))
+        with self.mutex:
+            return all(adapter.in_starving.is_set() for adapter in self.bridges.values())
 
     def log_msg(self, send_addr: int, recv_addr: int, x: int, y: int):
         """
@@ -167,22 +156,24 @@ class CentralSwitch:
 @dataclass
 class BridgeAdapter(InputPort, OutputPort):
     """
-    I/O port adapter from a single intcode machine towards the central switch.
+    I/O port wrapping over `queue.SimpleQueue` for thread-safe communication.
     """
     switch: CentralSwitch
     addr: int
-    in_queue: SimpleQueue[int] = field(default_factory=SimpleQueue, init=False)
+    polling_interval: float = 0.1
+    in_queue: collections.deque[int] = field(default_factory=collections.deque, init=False)
     out_buffer: list[int] = field(default_factory=list, init=False)
+    in_starving: threading.Event = field(default_factory=threading.Event, init=False)
 
     def __post_init__(self):
-        self.in_queue.put(self.addr)
+        self.in_queue.append(self.addr)
 
     def read_int(self, sentinel: Predicate = None) -> int:
-        try:
-            return self.in_queue.get_nowait()
-        except Empty:
-            self.switch.update_idling(self.addr, True)
-            return -1
+        if self.in_queue:
+            return self.in_queue.popleft()
+        self.in_starving.set()
+        time.sleep(self.polling_interval)
+        return -1
 
     def write_int(self, value: int, sentinel: Predicate = None):
         self.out_buffer.append(value)
