@@ -11,7 +11,7 @@ from queue import Empty, SimpleQueue
 from typing import NamedTuple
 
 from mysolution.geometry import Vec
-from mysolution.machine import Machine, Predicate, load_instructions
+from mysolution.machine import InputPort, Machine, OutputPort, Predicate, load_instructions
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ class CentralSwitch:
 
 
 @dataclass
-class BridgeAdapter:
+class BridgeAdapter(InputPort, OutputPort):
     """
     I/O port adapter from a single intcode machine towards the central switch.
     """

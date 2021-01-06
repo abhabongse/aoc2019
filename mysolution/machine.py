@@ -9,10 +9,10 @@ import inspect
 import itertools
 import sys
 import threading
+from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from dataclasses import InitVar, dataclass, field
-from queue import Empty, SimpleQueue
-from typing import Iterator, NamedTuple, Optional, Protocol, Sequence, TextIO, runtime_checkable
+from typing import Iterator, NamedTuple, Optional, Sequence, TextIO
 
 Predicate = Callable[[], bool]
 
@@ -195,12 +195,12 @@ class Machine:
             instr //= 10
 
 
-@runtime_checkable
-class InputPort(Protocol):
+class InputPort(metaclass=ABCMeta):
     """
     Defines input port which connects an intcode machine with external input source.
     """
 
+    @abstractmethod
     def read_int(self, sentinel: Predicate = None) -> int:
         """
         An intcode machine calls this method to read an input integer.
@@ -209,13 +209,19 @@ class InputPort(Protocol):
         """
         raise NotImplementedError
 
+    def read_ints(self, n: int, sentinel: Predicate = None) -> list[int]:
+        """
+        Same as `read_int` but reads multiple integers at the same time.
+        """
+        return [self.read_int(sentinel) for _ in range(n)]
 
-@runtime_checkable
-class OutputPort(Protocol):
+
+class OutputPort(metaclass=ABCMeta):
     """
     Defines output port which connects an intcode machine with external output source.
     """
 
+    @abstractmethod
     def write_int(self, value: int, sentinel: Predicate = None):
         """
         An intcode machine calls this method to write an output integer.
@@ -224,9 +230,16 @@ class OutputPort(Protocol):
         """
         raise NotImplementedError
 
+    def write_ints(self, values: Sequence[int], sentinel: Predicate = None):
+        """
+        Same as `write_int` but write multiple integers at the same time.
+        """
+        for v in values:
+            self.write_int(v, sentinel)
+
 
 @dataclass
-class KeyboardPort:
+class KeyboardPort(InputPort):
     """
     Basic input port connecting the intcode machine to the prompted standard input.
     """
@@ -237,7 +250,7 @@ class KeyboardPort:
 
 
 @dataclass
-class ScreenPort:
+class ScreenPort(OutputPort):
     """
     Basic output port connecting the intcode machine to the standard output (or other stream).
     """
@@ -251,37 +264,70 @@ class ScreenPort:
 
 
 @dataclass
-class QueuePort:
+class QueuePort(InputPort, OutputPort):
     """
     I/O port wrapping over `queue.SimpleQueue` for thread-safe communication.
     """
-    queue: SimpleQueue[int] = field(default_factory=SimpleQueue, init=False)
+    queue: collections.deque[int] = field(default_factory=collections.deque, init=False)
     initial_values: InitVar[Sequence[int]] = None
     retries: int = None
     polling_interval: float = 1.0
+    mutex: threading.Lock = field(init=False)
+    not_empty: threading.Condition = field(init=False)
+    starving: threading.Event = field(init=False)
 
     def __post_init__(self, initial_values: Sequence[int] = None):
-        initial_values = initial_values or []
-        for value in initial_values:
-            self.write_int(value)
+        if initial_values:
+            self.queue.extend(initial_values)
+        self.mutex = threading.Lock()
+        self.not_empty = threading.Condition(self.mutex)
+        self.starving = threading.Event()
 
     def read_int(self, sentinel: Predicate = None) -> int:
         if self.polling_interval <= 0:
             raise ValueError("polling interval must be strictly positive")
-        loop = itertools.count() if self.retries is None else range(self.retries + 1)
-        for _ in loop:
-            try:
-                return self.queue.get(timeout=self.polling_interval)
-            except Empty as exc:
+        with self.not_empty:
+            loop = itertools.count() if self.retries is None else range(self.retries + 1)
+            for _ in loop:
+                if self.queue:
+                    return self.queue.popleft()
+                self.starving.set()
                 if sentinel and sentinel():
-                    raise ResourceUnavailable from exc
+                    raise ResourceUnavailable
+                self.not_empty.wait(self.polling_interval)
+        raise ResourceUnavailable
+
+    def read_ints(self, n: int, sentinel: Predicate = None) -> list[int]:
+        if self.polling_interval <= 0:
+            raise ValueError("polling interval must be strictly positive")
+        with self.not_empty:
+            loop = itertools.count() if self.retries is None else range(self.retries + 1)
+            for _ in loop:
+                if len(self.queue) >= n:
+                    return [self.queue.popleft() for _ in range(n)]
+                self.starving.set()
+                if sentinel and sentinel():
+                    raise ResourceUnavailable
+                self.not_empty.wait(self.polling_interval)
         raise ResourceUnavailable
 
     def write_int(self, value: int, sentinel: Predicate = None):
-        self.queue.put(value)
+        with self.mutex:
+            self.queue.append(value)
+            self.starving.clear()
+            self.not_empty.notify()
+
+    def write_ints(self, values: Sequence[int], sentinel: Predicate = None):
+        with self.mutex:
+            self.queue.extend(values)
+            self.starving.clear()
+            self.not_empty.notify()
 
 
 class Parameter(NamedTuple):
+    """
+    Intcode instruction parameter.
+    """
     number: int
     mode: int
 

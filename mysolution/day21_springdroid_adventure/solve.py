@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Optional, TextIO
 
-from mysolution.machine import Machine, Predicate, QueuePort, load_instructions
+from mysolution.machine import Machine, OutputPort, Predicate, QueuePort, load_instructions
 
 
 def main():
@@ -60,7 +60,7 @@ def prepare_springscript(script: Sequence[str]) -> list[int]:
 
 
 @dataclass
-class ASCIIScreenPort:
+class ASCIIScreenPort(OutputPort):
     """
     ASCII-capable screen port.
     """

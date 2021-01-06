@@ -127,8 +127,7 @@ class RobotChip:
         and responses with the new color to paint and where to move next.
         """
         self.input_port.write_int(color, sentinel=sentinel)
-        new_color = self.output_port.read_int(sentinel=sentinel)
-        turn_direction = self.output_port.read_int(sentinel=sentinel)
+        new_color, turn_direction = self.output_port.read_ints(n=2, sentinel=sentinel)
         return new_color, turn_direction
 
 

@@ -9,7 +9,7 @@ from typing import ClassVar
 
 import more_itertools
 
-from mysolution.machine import Machine, Predicate, load_instructions
+from mysolution.machine import InputPort, Machine, OutputPort, Predicate, load_instructions
 
 
 class Tile(enum.IntEnum):
@@ -78,7 +78,7 @@ class ArcadeDisplay:
 
 
 @dataclass
-class ArcadeDisplayAdapter:
+class ArcadeDisplayAdapter(InputPort, OutputPort):
     """
     Main controller for the arcade machine
     which itself also acts as I/O ports for the intcode machine.
