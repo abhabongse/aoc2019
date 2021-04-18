@@ -1,0 +1,10 @@
+[package]
+name = "day16_flawed_frequency_transmission"
+version = "0.1.0"
+authors = ["Abhabongse Janthong <6845502+abhabongse@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rayon = "1.5"
