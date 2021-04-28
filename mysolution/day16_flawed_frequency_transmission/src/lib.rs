@@ -10,8 +10,7 @@ pub struct Signal {
 
 impl Signal {
     pub fn new(digits: Vec<i32>) -> Self {
-        let prefix_sum: Vec<i32> = Some(0)
-            .iter()
+        let prefix_sum: Vec<i32> = std::iter::once(&0)
             .chain(digits.iter())
             .scan(0, |state, &x| {
                 *state = *state + x;
